@@ -1,0 +1,11 @@
+title = "gitleaks config"
+
+[allowlist]
+description = "Fake test credentials and internal dev docs"
+paths = [
+  '''docs/superpowers/.*''',
+]
+regexes = [
+  # Fake AK used in sanitization test fixtures (not a real credential)
+  '''LTAItestFAKEnotREAL1234''',
+]

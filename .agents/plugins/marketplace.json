@@ -1,0 +1,32 @@
+{
+  "name": "alibabacloud-agent-toolkit",
+  "interface": {
+    "displayName": "Alibaba Cloud Agent Toolkit"
+  },
+  "plugins": [
+    {
+      "name": "alibabacloud-core",
+      "source": {
+        "source": "local",
+        "path": "./plugins/alibabacloud-core"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Cloud"
+    },
+    {
+      "name": "alibabacloud-spec-ops",
+      "source": {
+        "source": "local",
+        "path": "./plugins/alibabacloud-spec-ops"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Cloud"
+    }
+  ]
+}

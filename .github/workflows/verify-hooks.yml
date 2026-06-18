@@ -1,0 +1,39 @@
+name: verify-hooks
+
+on:
+  pull_request:
+    paths:
+      - "plugins/alibabacloud-core/hooks/**"
+      - "tools/dev-hooks/**"
+      - ".github/workflows/verify-hooks.yml"
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify hooks layout (canonical alibabacloud-core, no symlinks, no divergence)
+        run: bash tools/dev-hooks/verify-hooks.sh
+      - name: Run sanitize self-tests
+        run: python3 plugins/alibabacloud-core/hooks/scripts/lib/sanitize.py
+      - name: Run dry-run fixtures
+        run: bash tools/dev-hooks/dry-run.sh --all
+      - name: Run trace integration tests
+        run: bash tools/dev-hooks/test-trace.sh
+      - name: Smoke-test post-tool-trace.sh wrapper
+        run: |
+          stateDir=$(mktemp -d)
+          ALIBABACLOUD_TELEMETRY_STATE_DIR=$stateDir \
+          ALIBABACLOUD_TELEMETRY_DRY_RUN=1 \
+            bash plugins/alibabacloud-core/hooks/scripts/post-tool-trace.sh \
+            < tools/dev-hooks/test-fixtures/claude-code/post-skill-success.json
+          grep -q "^DRYRUN: uvx alibabacloud.mcp-proxy@latest plugin-telemetry --client-name claude-code --event-type skill_invocation" \
+            "$stateDir/claude-code/debug.log"

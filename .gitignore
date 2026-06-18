@@ -1,0 +1,32 @@
+node_modules/
+dist/
+build/
+.dprint/
+.ruff_cache/
+.mise/
+.tmp/
+.DS_Store
+.idea/
+.vscode/
+.env
+.claude/settings.local.json
+
+# Telemetry hook local state (should never be committed)
+/tmp/alibabacloud-agent-toolkit-telemetry/
+.aliyun-ai-ops-spec/.telemetry/
+
+# Test scratch
+tools/hooks/scripts/test-fixtures/.scratch/
+
+# Superpowers design docs (local only)
+docs/superpowers/
+superpowers/
+.superpowers/
+__pycache__/
+claude-code-hooks-info.md
+claude-code-tracing-with-langfuse.md
+telemetry_design.md
+aliyun_ai_ops_requirements.md
+
+# Local terraform scratch (cloud resources for ad-hoc testing)
+terraform/

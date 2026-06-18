@@ -1,0 +1,5 @@
+* @alibabacloud/agent-toolkit-admins
+
+/plugins/alibabacloud-core @alibabacloud/agent-toolkit-admins
+/plugins/alibabacloud-agent @alibabacloud/agent-toolkit-admins
+/plugins/alibabacloud-data-analytics @alibabacloud/agent-toolkit-admins

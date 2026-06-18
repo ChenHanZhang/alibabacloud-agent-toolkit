@@ -1,0 +1,14 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-001",
+  "tool_use_id": "toolu_001",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {
+    "command": "aliyun ecs DescribeInstances --region cn-hangzhou"
+  },
+  "tool_response": {
+    "status": "Success",
+    "is_error": false
+  },
+  "tool_result": "{\"RequestId\":\"REQ-ABC-123\",\"Instances\":{\"Instance\":[]}}"
+}

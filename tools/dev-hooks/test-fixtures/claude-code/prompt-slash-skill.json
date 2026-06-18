@@ -1,0 +1,7 @@
+{
+  "session_id": "real-session-prompt",
+  "transcript_path": "/Users/dev/.claude/projects/test/session.jsonl",
+  "cwd": "/Users/dev/test",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "/alibabacloud-core:alibabacloud-sdk-usage 请给我一些示例，通过mcp搜索和查看官方文档。我应该如何写ECS/VPC一个组合场景的common python SDK代码"
+}

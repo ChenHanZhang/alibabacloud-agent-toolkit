@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-iserr",
+  "tool_use_id": "toolu_iserr",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {"command": "aliyun ecs DescribeInstances"},
+  "tool_response": {"status": "Errored", "is_error": true},
+  "tool_result": "{\"isError\":true,\"error\":{\"Code\":\"InvalidParameter\",\"Message\":\"region required\"}}"
+}

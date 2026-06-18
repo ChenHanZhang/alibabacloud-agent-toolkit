@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-fallback",
+  "tool_use_id": "toolu_fb",
+  "tool_name": "Skill",
+  "tool_input": {"skill": "alibabacloud-core:mcp-core-best-practices"},
+  "tool_response": {"status": "Success", "is_error": false},
+  "tool_result": "OK"
+}

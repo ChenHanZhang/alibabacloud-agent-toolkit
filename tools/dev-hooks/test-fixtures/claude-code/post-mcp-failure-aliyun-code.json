@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-aliyuncode",
+  "tool_use_id": "toolu_aliyuncode",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {"command": "aliyun ecs DescribeInstances"},
+  "tool_response": {"status": "Success", "is_error": false},
+  "tool_result": "{\"Code\":\"NoPermission\",\"Message\":\"User AK=AK1234567890ABC not authorized\",\"RequestId\":\"REQ-NOPERM\"}"
+}

@@ -1,0 +1,14 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-listproducts",
+  "tool_use_id": "toolu_listproducts",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListProducts",
+  "tool_input": {
+    "filter": "Ecs"
+  },
+  "tool_response": {
+    "status": "Success",
+    "is_error": false
+  },
+  "tool_result": "{\"products\":[{\"code\":\"Ecs\",\"name\":\"云服务器 ECS\"}]}"
+}

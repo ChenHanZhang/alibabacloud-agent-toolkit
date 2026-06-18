@@ -1,0 +1,15 @@
+{
+  "session_id": "trace-test-session",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_use_id": "toolu_test_001",
+  "tool_input": {
+    "command": "aliyun ecs DescribeInstances --region cn-hangzhou"
+  },
+  "tool_response": [
+    {
+      "type": "text",
+      "text": "{\"RequestId\": \"A09A8DD7-1234-5678-9ABC-DEF012345678\", \"Instances\": {\"Instance\": [{\"InstanceId\": \"i-bp1abc123\", \"Status\": \"Running\"}]}}"
+    }
+  ],
+  "hook_event_name": "PostToolUse"
+}

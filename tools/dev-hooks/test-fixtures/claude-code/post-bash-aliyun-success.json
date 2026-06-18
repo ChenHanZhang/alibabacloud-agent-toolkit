@@ -1,0 +1,15 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-bash",
+  "tool_use_id": "toolu_bash",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "aliyun ecs DescribeInstances --region cn-hangzhou",
+    "description": "List ECS"
+  },
+  "tool_response": {
+    "exit_code": 0,
+    "stdout": "{\"RequestId\":\"BASH-REQ-001\",\"Instances\":{\"Instance\":[]}}",
+    "stderr": ""
+  }
+}

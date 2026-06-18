@@ -1,0 +1,18 @@
+{
+  "session_id": "561244e5-0887-4a06-a271-110509679612",
+  "transcript_path": "/Users/dev/.claude/projects/test/session.jsonl",
+  "cwd": "/Users/dev/projects/ai/test",
+  "permission_mode": "default",
+  "effort": {"level": "xhigh"},
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {"command": "aliyun vpc DescribeVSwitches --RegionId cn-hangzhou --VpcId My-TestVpc"},
+  "tool_response": [
+    {
+      "type": "text",
+      "text": "{\n  \"PageNumber\": 1,\n  \"PageSize\": 10,\n  \"RequestId\": \"DC946F93-C0F8-5C47-87E6-E3E5757A420D\",\n  \"TotalCount\": 0,\n  \"VSwitches\": {\n    \"VSwitch\": []\n  }\n}"
+    }
+  ],
+  "tool_use_id": "toolu_vrtx_01WTjPJYW3iBsyPK2St7Nu2k",
+  "duration_ms": 859
+}

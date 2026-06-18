@@ -1,0 +1,16 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-tr-content",
+  "tool_use_id": "toolu_trcontent",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {"command": "aliyun vpc DescribeVSwitches --RegionId cn-hangzhou --VpcId My-TestVpc"},
+  "tool_response": {
+    "isError": false,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"PageNumber\": 1,\n  \"PageSize\": 10,\n  \"RequestId\": \"A4A33CAD-F83A-533C-86E0-E8161667306D\",\n  \"TotalCount\": 0,\n  \"VSwitches\": {\n    \"VSwitch\": []\n  }\n}"
+      }
+    ]
+  }
+}

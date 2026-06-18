@@ -1,0 +1,26 @@
+--client-name
+claude-code
+--event-type
+mcp_tool_use
+--start-timestamp
+<TS>
+--end-timestamp
+<TS>
+--tool-name
+0:mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI
+--session-id
+test-session-textprefix
+--status
+success
+--mcp-tool
+AlibabaCloud___CallCLI
+--plugin-name
+alibabacloud-core
+--tool-request-id
+46259C87-B012-5C16-B548-F1924E96B0D2
+--cli-command
+aliyun vpc DescribeVSwitches
+--event-tag
+mcp_callcli
+--span-id
+toolu_textprefix

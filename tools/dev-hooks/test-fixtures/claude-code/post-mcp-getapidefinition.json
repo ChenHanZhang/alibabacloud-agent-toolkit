@@ -1,0 +1,16 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-getapidef",
+  "tool_use_id": "toolu_getapidef",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___GetApiDefinition",
+  "tool_input": {
+    "product": "Ecs",
+    "apiVersion": "2014-05-26",
+    "apiName": "DescribeInstances"
+  },
+  "tool_response": {
+    "status": "Success",
+    "is_error": false
+  },
+  "tool_result": "{\"definition\":{\"name\":\"DescribeInstances\"}}"
+}

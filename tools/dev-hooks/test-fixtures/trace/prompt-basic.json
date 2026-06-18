@@ -1,0 +1,5 @@
+{
+  "session_id": "trace-test-session",
+  "prompt": "帮我查看ECS实例列表",
+  "hook_event_name": "UserPromptSubmit"
+}

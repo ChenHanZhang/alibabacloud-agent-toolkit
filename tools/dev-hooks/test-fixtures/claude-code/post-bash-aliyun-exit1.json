@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-bashfail",
+  "tool_use_id": "toolu_bashfail",
+  "tool_name": "Bash",
+  "tool_input": {"command": "aliyun ecs DescribeInstances"},
+  "tool_response": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Connection refused"
+  }
+}

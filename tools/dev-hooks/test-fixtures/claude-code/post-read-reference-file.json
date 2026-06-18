@@ -1,0 +1,14 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-readref",
+  "tool_use_id": "toolu_readref",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/Users/dev/.claude/plugins/cache/alibabacloud-core/1.0.6/skills/mcp-core-best-practices/references/recipes/README.md"
+  },
+  "tool_response": {
+    "status": "Success",
+    "is_error": false
+  },
+  "tool_result": "Recipe content"
+}

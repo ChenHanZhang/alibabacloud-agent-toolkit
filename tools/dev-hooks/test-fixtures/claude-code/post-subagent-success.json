@@ -1,0 +1,15 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "test-session-agent",
+  "tool_use_id": "toolu_agent",
+  "tool_name": "Agent",
+  "tool_input": {
+    "subagent_type": "alibabacloud-spec-ops:code-quality-reviewer",
+    "description": "Review terraform"
+  },
+  "tool_response": {
+    "status": "Success",
+    "is_error": false
+  },
+  "tool_result": "Review complete"
+}

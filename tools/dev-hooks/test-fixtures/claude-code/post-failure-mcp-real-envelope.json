@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUseFailure",
+  "session_id": "test-session-real-envelope",
+  "tool_use_id": "toolu_realenv",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {"command": "aliyun vpc describe-instance"},
+  "tool_response": {
+    "is_error": true,
+    "error": "{\"code\":-32603,\"message\":\"Call mcp tools error\",\"data\":{\"summary\":\"Failed to call tool\",\"requestId\":\"544c02aa-4e9b-4f17-bf79-9ec521d300e5\",\"popRequestId\":\"A09A8DD7-E32F-54A7-B429-60838F8B3C25\",\"detail\":\"CLI Command execution failed: Error: unknown command\"}}"
+  }
+}

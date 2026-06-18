@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PostToolUseFailure",
+  "session_id": "test-session-failevent",
+  "tool_use_id": "toolu_failevt",
+  "tool_name": "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI",
+  "tool_input": {"command": "aliyun vpc DeleteVSwitch"},
+  "tool_response": {"is_error": true},
+  "tool_result": "{\"isError\":true,\"error\":{\"Code\":\"IncorrectVSwitchId\",\"Message\":\"Specified vSwitch instance is not found\",\"RequestId\":\"REQ-INC-VSW-001\"}}"
+}

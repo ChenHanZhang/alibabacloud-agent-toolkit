@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>全链路可观测 · 对客价值</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background: #eef2f8;
+    color: #1a2540;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ====== 16:9 slide canvas ====== */
+  .slide {
+    width: 1600px; height: 900px;
+    position: relative;
+    background:
+      radial-gradient(1400px 800px at 50% -10%, rgba(0,150,220,0.06), transparent 60%),
+      linear-gradient(160deg, #ffffff 0%, #f5f8fc 100%);
+    overflow: hidden;
+    padding: 28px 44px 32px;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(20,35,70,0.08);
+  }
+  .slide::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(80,110,180,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(80,110,180,0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: linear-gradient(180deg, transparent, #000 20%, #000 90%, transparent);
+    pointer-events: none;
+  }
+
+  /* ====== Title ====== */
+  .title {
+    margin-top: 0; position: relative; z-index: 2;
+  }
+  .title h1 {
+    font-size: 34px; font-weight: 700;
+    color: #1a2540;
+    letter-spacing: 1px;
+    line-height: 1.25;
+  }
+  .title h1 .accent { color: #0099cc; font-weight: 700; }
+  .title .sub {
+    margin-top: 10px; font-size: 15px; color: #5a6a8c; font-weight: 400;
+    letter-spacing: 0.3px;
+  }
+  .title .sub strong {
+    color: #0078a8; background: transparent;
+    padding: 0 4px; border: none;
+    font-weight: 600;
+  }
+
+  /* ====== Body grid: 左=架构图,右=价值卡 ====== */
+  .body {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 28px;
+    position: relative; z-index: 2;
+    height: 740px;
+  }
+
+  /* === 左侧:操作流 + 透明 Trace + 真实截图 === */
+  .arch {
+    position: relative;
+    height: 740px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(60,80,140,0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    padding: 14px 16px;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .arch > * { position: relative; z-index: 2; }
+
+  /* 1. 操作流 */
+  .opflow {
+    display: flex; align-items: stretch; gap: 7px;
+    flex-shrink: 0;
+  }
+  .opflow .node {
+    border-radius: 9px;
+    border: 1px solid rgba(60,80,140,0.18);
+    background: #ffffff;
+    padding: 6px 10px;
+    display: flex; flex-direction: column;
+    justify-content: center; gap: 3px;
+  }
+  .opflow .node .head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; color: #1a2540;
+    letter-spacing: 0.3px;
+  }
+  .opflow .node .head .em {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    color: #0099cc;
+  }
+  .opflow .node .head .em svg { width: 100%; height: 100%; }
+  .opflow .node .sub {
+    font-size: 9.5px; color: #5a6a8c;
+    letter-spacing: 0.3px;
+  }
+  /* User: 中性色 */
+  .opflow .node.user {
+    flex: 0 0 134px;
+    align-items: center; text-align: center; gap: 4px;
+    justify-content: center;
+  }
+  .opflow .node.user .head { flex-direction: column; gap: 5px; font-size: 11.5px; line-height: 1.3; }
+  .opflow .node.user .head .em { width: 28px; height: 28px; color: #5a6a8c; }
+  /* Agent: 紫色突出 */
+  .opflow .node.agent {
+    flex: 1.05;
+    background: linear-gradient(135deg, rgba(108,80,255,0.06), #ffffff);
+    border-color: rgba(108,80,255,0.32);
+  }
+  .opflow .node.agent .head .em { color: #6c2bff; }
+  .opflow .node.agent .clients {
+    display: flex; flex-wrap: wrap; gap: 3px;
+  }
+  .opflow .node.agent .clients .c {
+    font-size: 9.5px; padding: 1px 6px; border-radius: 6px;
+    background: rgba(108,80,255,0.06);
+    border: 1px solid rgba(108,80,255,0.25);
+    color: #5a1fd8; font-weight: 600;
+  }
+  /* Tools: 青色突出 */
+  .opflow .node.tools {
+    flex: 1.4;
+    background: linear-gradient(135deg, rgba(0,150,220,0.06), #ffffff);
+    border-color: rgba(0,150,220,0.32);
+  }
+  .opflow .node.tools .head .em { color: #0099cc; }
+  .opflow .node.tools .toolchips {
+    display: flex; flex-wrap: wrap; gap: 3px;
+  }
+  .opflow .node.tools .toolchips span {
+    font-size: 9.5px; padding: 1px 6px; border-radius: 6px;
+    background: rgba(0,150,220,0.06);
+    border: 1px solid rgba(0,150,220,0.30);
+    color: #0078a8; font-weight: 600;
+  }
+  /* Assets: 中性色 */
+  .opflow .node.assets {
+    flex: 1.2;
+    border-color: rgba(60,80,140,0.18);
+  }
+  .opflow .node.assets .head .em { color: #5a6a8c; }
+  .opflow .node.assets .assetchips {
+    display: flex; flex-wrap: wrap; gap: 3px;
+  }
+  .opflow .node.assets .assetchips span {
+    font-size: 9.5px; padding: 1px 6px; border-radius: 6px;
+    background: rgba(60,80,140,0.04);
+    border: 1px solid rgba(60,80,140,0.20);
+    color: #5a6a8c; font-weight: 600;
+  }
+  .opflow .arr {
+    flex: 0 0 auto;
+    align-self: center;
+    font-size: 12px; color: #b0bdd8; font-weight: 600;
+  }
+
+  /* 2. trace 过渡线 */
+  .trace-line {
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 10px; color: #0099cc; font-weight: 600;
+    letter-spacing: 3px;
+    padding: 4px 0;
+    opacity: 0.8;
+  }
+
+  /* 3. 多面板 head */
+  .panels-head {
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .panels-head .title {
+    font-size: 11px; color: #5a6a8c; font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .panels-head .title em {
+    color: #0099cc; font-style: normal; font-weight: 700;
+  }
+  /* 4. 4 面板 */
+  .panels {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 8px;
+    min-height: 0;
+  }
+  .panel {
+    display: flex; flex-direction: column;
+    border-radius: 10px;
+    border: 1px solid rgba(60,80,140,0.18);
+    background: #ffffff;
+    overflow: hidden;
+    min-height: 0;
+    box-shadow: 0 1px 3px rgba(20,35,70,0.04);
+  }
+  .panel.local  { border-color: rgba(0,150,220,0.35); }
+  .panel.remote { border-color: rgba(108,80,255,0.35); }
+
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 9px;
+    background: #f5f8fc;
+    border-bottom: 1px solid rgba(60,80,140,0.12);
+    flex-shrink: 0;
+  }
+  .panel-head .name {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: #1a2540; font-weight: 800;
+  }
+  .panel-head .name .em {
+    width: 17px; height: 17px; border-radius: 4px;
+    display: grid; place-items: center;
+    font-size: 10.5px; font-weight: 800; color: #fff;
+  }
+  .panel-head .name .em.cc { background: linear-gradient(135deg, #ff7a3d, #d04a18); }
+  .panel-head .name .em.cx { background: linear-gradient(135deg, #2c2c2c, #000); }
+  .panel-head .name .em.qw { background: linear-gradient(135deg, #4a8fff, #1d56cc); }
+  .panel-head .name .em.cl { background: linear-gradient(135deg, #c2a9ff, #6c2bff); }
+  .panel-head .badge {
+    font-size: 9px; padding: 1px 7px; border-radius: 8px;
+    font-weight: 700; letter-spacing: 0.3px;
+  }
+  .panel.local  .panel-head .badge { color: #0078a8; background: rgba(0,150,220,0.08); border: 1px solid rgba(0,150,220,0.28); }
+  .panel.remote .panel-head .badge { color: #5a1fd8; background: rgba(108,80,255,0.08); border: 1px solid rgba(108,80,255,0.28); }
+
+  .panel-img {
+    flex: 1;
+    background: #f5f8fc;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .panel-img img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+  }
+
+  /* === 右侧价值卡 === */
+  .values {
+    display: grid; grid-template-rows: repeat(5, 1fr); gap: 10px;
+  }
+  .value {
+    border-radius: 10px;
+    padding: 14px 18px;
+    background: #ffffff;
+    border: 1px solid rgba(60,80,140,0.15);
+    display: flex; align-items: center; gap: 14px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(20,35,70,0.04);
+  }
+  .value::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: #0099cc;
+    opacity: 0.85;
+  }
+  .value .v-icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: rgba(0,150,220,0.08);
+    border: 1px solid rgba(0,150,220,0.28);
+    color: #0099cc;
+    flex-shrink: 0;
+  }
+  .value .v-icon svg {
+    width: 22px; height: 22px;
+  }
+  .value h4 { font-size: 15.5px; color: #1a2540; font-weight: 700; margin-bottom: 2px; letter-spacing: 0.3px; }
+  .value .en {
+    font-size: 10px; color: #0099cc; font-weight: 600;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .value p { font-size: 11.5px; color: #5a6a8c; line-height: 1.55; }
+  .value p code {
+    font-family: -apple-system, "SF Mono", "Menlo", monospace;
+    font-size: 10.5px; color: #0078a8;
+    padding: 0 4px; border-radius: 4px;
+    background: rgba(0,150,220,0.08);
+  }
+  /* 仅第 5 卡(数据自主)用紫色 */
+  .value:nth-child(5) .v-icon {
+    background: rgba(108,80,255,0.08);
+    border-color: rgba(108,80,255,0.30);
+    color: #6c2bff;
+  }
+  .value:nth-child(5) .en { color: #6c2bff; }
+  .value:nth-child(5)::before { background: #6c2bff; opacity: 0.85; }
+
+  /* ====== Footer ====== */
+  .foot {
+    position: absolute; left: 44px; right: 44px; bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10.5px; color: #8a9ab2; letter-spacing: 1.5px;
+    z-index: 2;
+  }
+  .foot .pillars { display: flex; gap: 24px; }
+  .foot .pillars b { color: #0099cc; font-weight: 600; }
+</style>
+</head>
+<body>
+  <section class="slide">
+
+    <!-- Title -->
+    <div class="title">
+      <h1>AI 工具链可观测 <span class="accent">— 看得见 · 可追溯 · 数据自主</span></h1>
+      <div class="sub">
+        使用<strong>阿里云 AI 工具链</strong> · 让 AI 替开发者 / 运维操作阿里云,从"我相信它"升级到
+        <strong>看得见</strong><strong>可追溯</strong><strong>可量化</strong><strong>可审计</strong><strong>能合规</strong>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+      <!-- === 左: 操作流 + 透明 Trace + 真实截图 === -->
+      <div class="arch">
+
+        <!-- 1. 操作流: 用户/开发者/运维 → Agent(多客户端) → 阿里云AI工具链 → 阿里云资产 -->
+        <div class="opflow">
+          <div class="node user">
+            <div class="head">
+              <span class="em"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg></span>
+              用户 / 开发者 / 运维
+            </div>
+            <div class="sub">用云需求</div>
+          </div>
+          <span class="arr">▶</span>
+          <div class="node agent">
+            <div class="head">
+              <span class="em"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg></span>
+              Agent
+            </div>
+            <div class="clients">
+              <span class="c">Claude Code</span>
+              <span class="c">Codex</span>
+              <span class="c">Qoder Work</span>
+              <span class="c">…</span>
+            </div>
+          </div>
+          <span class="arr">▶</span>
+          <div class="node tools">
+            <div class="head">
+              <span class="em"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 015.7 5.7l-1.4 1.4-5.7-5.7 1.4-1.4z"/><line x1="13.3" y1="7.7" x2="3.7" y2="17.3"/><line x1="6.7" y1="14.3" x2="9.7" y2="17.3"/></svg></span>
+              阿里云 AI 工具链
+            </div>
+            <div class="toolchips">
+              <span>CLI</span><span>SDK</span><span>MCP</span><span>Terraform</span><span>Skill</span><span>Plugin</span>
+            </div>
+          </div>
+          <span class="arr">▶</span>
+          <div class="node assets">
+            <div class="head">
+              <span class="em"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 010-8 6 6 0 0111-3 5 5 0 014 5 4 4 0 01-4 6H7z"/></svg></span>
+              阿里云资产
+            </div>
+            <div class="assetchips">
+              <span>ECS</span><span>RDS</span><span>VPC</span><span>OSS</span><span>ACK</span><span>RAM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. trace 过渡线 (旁路记录,简洁过渡) -->
+        <div class="trace-line">▼ tracing 全程旁路记录 · 不打扰 Agent 工作 ▼</div>
+
+        <!-- 3. 多面板 head -->
+        <div class="panels-head">
+          <div class="title">链路 Trace · <em>多客户端开箱即用</em></div>
+        </div>
+
+        <!-- 4. 4 面板 (2x2 grid · 装真实截图) -->
+        <div class="panels">
+          <div class="panel local">
+            <div class="panel-head">
+              <div class="name"><span class="em cc">C</span>Claude Code</div>
+              <span class="badge">本地 · 默认开启</span>
+            </div>
+            <div class="panel-img">
+              <img src="本地可观测-claudecode客户端.png" alt="Claude Code 本地 trace">
+            </div>
+          </div>
+
+          <div class="panel local">
+            <div class="panel-head">
+              <div class="name"><span class="em cx">X</span>Codex</div>
+              <span class="badge">本地 · 默认开启</span>
+            </div>
+            <div class="panel-img">
+              <img src="本地可观测-codex客户端.png" alt="Codex 本地 trace">
+            </div>
+          </div>
+
+          <div class="panel local">
+            <div class="panel-head">
+              <div class="name"><span class="em qw">Q</span>Qoder Work</div>
+              <span class="badge">本地 · 默认开启</span>
+            </div>
+            <div class="panel-img">
+              <img src="本地可观测-qoderwork客户端.png" alt="Qoder Work 本地 trace">
+            </div>
+          </div>
+
+          <div class="panel remote">
+            <div class="panel-head">
+              <div class="name"><span class="em cl">☁</span>客户自有数仓</div>
+              <span class="badge">远程 · 可选 BYOC</span>
+            </div>
+            <div class="panel-img">
+              <img src="远程可观测上报.png" alt="阿里云 ARMS 远程 trace 上报">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- === 右: 价值卡 === -->
+      <div class="values">
+        <div class="value">
+          <div class="v-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div>
+            <h4>看得见</h4>
+            <p>每个 turn 一棵 span 树 — LLM 思考 → 工具选择 → 阿里云 OpenAPI 全链路</p>
+          </div>
+        </div>
+        <div class="value">
+          <div class="v-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="6"/><line x1="14.5" y1="14.5" x2="20" y2="20"/></svg>
+          </div>
+          <div>
+            <h4>可追溯</h4>
+            <p>出错时展开错误堆栈,<code>RequestId</code> 定位阿里云控制台 / ActionTrail</p>
+          </div>
+        </div>
+        <div class="value">
+          <div class="v-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="20" x2="21" y2="20"/><rect x="6" y="13" width="3" height="7"/><rect x="11" y="8" width="3" height="12"/><rect x="16" y="11" width="3" height="9"/></svg>
+          </div>
+          <div>
+            <h4>可量化</h4>
+            <p>每会话 turn / tool / skill / 成功率 / token,本地直查 P95 与错误率</p>
+          </div>
+        </div>
+        <div class="value">
+          <div class="v-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><line x1="9" y1="12" x2="16" y2="12"/><line x1="9" y1="16" x2="16" y2="16"/></svg>
+          </div>
+          <div>
+            <h4>可审计</h4>
+            <p>操作五元组留痕:RAM 身份 · 时间戳 · OpenAPI Action · 资源 ID · <code>RequestId</code></p>
+          </div>
+        </div>
+        <div class="value">
+          <div class="v-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 8.5-8 9.5-4-1-8-4.5-8-9.5V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <div>
+            <h4>能合规 · 数据自主</h4>
+            <div class="en">Data Sovereignty</div>
+            <p>AK / SK / PII 自动脱敏 · 可上报至 SLS / ARMS / 客户自建数仓</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="foot">
+      <div>阿里云 Agent Toolkits</div>
+      <div class="pillars">
+        <span>多客户端开箱即用</span>
+        <span>本地默认归档</span>
+        <span>远程上报至 <b>客户自有数仓</b></span>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

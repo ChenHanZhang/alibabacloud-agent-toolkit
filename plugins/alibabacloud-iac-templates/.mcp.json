@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "alibabacloud-iac-templates": {
+      "command": "uvx",
+      "args": [
+        "alibabacloud.mcp-proxy@latest",
+        "--safety-policy",
+        "iacservice:*=allow,*=deny"
+      ]
+    }
+  }
+}

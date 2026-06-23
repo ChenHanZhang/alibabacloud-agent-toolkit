@@ -48,8 +48,8 @@
         "terraform",
         "templates"
       ],
-      "name": "alibabacloud-iac-templates",
-      "source": "./plugins/alibabacloud-iac-templates",
+      "name": "alibabacloud-iac-service",
+      "source": "./plugins/alibabacloud-iac-service",
       "version": "0.1.0"
     }
   ]

@@ -12,7 +12,7 @@
     "templates"
   ],
   "license": "Apache-2.0",
-  "name": "alibabacloud-iac-templates",
+  "name": "alibabacloud-iac-service",
   "repository": "https://github.com/aliyun/alibabacloud-agent-toolkit",
   "version": "0.1.0"
 }

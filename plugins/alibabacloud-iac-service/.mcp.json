@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "alibabacloud-iac-templates": {
+    "alibabacloud-iac-service": {
       "command": "uvx",
       "args": [
         "alibabacloud.mcp-proxy@latest",

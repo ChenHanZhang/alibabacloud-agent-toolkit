@@ -7,7 +7,7 @@ asynchronous — submit, then poll.
 
 **ALL commands run through MCP tool `AlibabaCloud___CallCLI`** — never Bash.
 Fully qualified name:
-`mcp__plugin_alibabacloud-iac-templates_alibabacloud-iac-templates__AlibabaCloud___CallCLI`.
+`mcp__plugin_alibabacloud-iac-service_alibabacloud-iac-service__AlibabaCloud___CallCLI`.
 
 ## Authentication & shared credential
 

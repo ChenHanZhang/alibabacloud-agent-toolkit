@@ -57,11 +57,11 @@ Generate a fresh UUID per write op; reuse a token only to retry the same call.
 ## 3. Use (run a template)
 
 1. **Task**: `create-task --client-token <uuid> --name <n> --module-id <id> --module-version <v>` → `TaskId`.
-2. **Plan**: `create-job --task-id <TaskId> --client-token <uuid> --description "plan" --sub-command plan` → `JobId`.
-3. **Poll**: `get-job --task-id <TaskId> --job-id <JobId>` every ~10 s until terminal; surface the plan.
-4. **Gate**: show the plan, get explicit user confirmation. Never apply silently.
-5. **Apply**: `create-job --task-id <TaskId> --client-token <uuid> --description "apply"` (omit `--sub-command`).
-6. **Destroy** (double-confirm): `create-job ... --sub-command destroy`.
+2. **Plan**: `create-job --task-id <TaskId> --client-token <uuid> --description "plan"` (no `--sub-command`; a default job plans then waits) → `JobId`.
+3. **Poll**: `get-job --task-id <TaskId> --job-id <JobId>` every ~10 s until `ConfigProactiveSuccess`; read `statusDetail.Planned.jobResult` + `outputJsonPlan`.
+4. **Gate**: show the plan ("N to add/change/destroy"), get explicit user confirmation. Never apply silently.
+5. **Apply**: `operate-job --task-id <TaskId> --job-id <JobId> --operation-type execute` → Confirmed → Applied.
+6. **Destroy** (double-confirm): `create-job ... --sub-command destroy` → poll `Planned` → `operate-job ... --operation-type execute`. Cleanup: `delete-task`.
 
 ## Safety gates
 

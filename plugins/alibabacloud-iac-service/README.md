@@ -1,4 +1,4 @@
-# alibabacloud-iac-templates
+# alibabacloud-iac-service
 
 Discover, manage, and run Alibaba Cloud **IaC Service** (自动化服务台) Terraform
 templates from one shared credential.
@@ -6,7 +6,7 @@ templates from one shared credential.
 This plugin includes:
 
 - Plugin manifests for Codex and Claude Code
-- An MCP server named `alibabacloud-iac-templates` constrained to IaC Service
+- An MCP server named `alibabacloud-iac-service` constrained to IaC Service
 - A skill that discovers a user's templates (modules), manages versions, and
   runs them as tasks/jobs with plan-before-apply gating
 
@@ -21,7 +21,7 @@ via `CreateTask`/`CreateJob` — all through one `CallCLI` server.
 ## Install
 
 ```bash
-npx openplugin aliyun/alibabacloud-agent-toolkit --plugin alibabacloud-iac-templates
+npx openplugin aliyun/alibabacloud-agent-toolkit --plugin alibabacloud-iac-service
 ```
 
 Target one client: add `--claude`, `--codex`, or `--qoderwork`.
@@ -33,7 +33,7 @@ Constrained to IaC Service only:
 ```json
 {
   "mcpServers": {
-    "alibabacloud-iac-templates": {
+    "alibabacloud-iac-service": {
       "command": "uvx",
       "args": [
         "alibabacloud.mcp-proxy@latest",
@@ -49,7 +49,7 @@ Constrained to IaC Service only:
 
 | Skill | Description |
 |-------|-------------|
-| `alibabacloud-iac-templates` | Discover, version, and run IaC Service Terraform templates |
+| `alibabacloud-iac-service` | Discover, version, and run IaC Service Terraform templates |
 
 ## Workflow
 

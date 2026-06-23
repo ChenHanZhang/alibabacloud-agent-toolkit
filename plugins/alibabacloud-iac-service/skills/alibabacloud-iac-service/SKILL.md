@@ -1,5 +1,5 @@
 ---
-name: alibabacloud-iac-templates
+name: alibabacloud-iac-service
 description: >
   Discover, manage, and run Alibaba Cloud IaC Service (自动化服务台) Terraform
   templates through one shared credential. Use to list a user's existing
@@ -19,7 +19,7 @@ metadata:
   domain: iac-service
   owner: sdk-team
   contact: sdk-team@alibabacloud.com
-allowed-tools: "mcp__plugin_alibabacloud-iac-templates_alibabacloud-iac-templates__AlibabaCloud___CallCLI,mcp__plugin_alibabacloud-iac-templates_alibabacloud-iac-templates__AlibabaCloud___GetApiDefinition,mcp__plugin_alibabacloud-iac-templates_alibabacloud-iac-templates__AlibabaCloud___SearchDocument"
+allowed-tools: "mcp__plugin_alibabacloud-iac-service_alibabacloud-iac-service__AlibabaCloud___CallCLI,mcp__plugin_alibabacloud-iac-service_alibabacloud-iac-service__AlibabaCloud___GetApiDefinition,mcp__plugin_alibabacloud-iac-service_alibabacloud-iac-service__AlibabaCloud___SearchDocument"
 ---
 
 # Alibaba Cloud IaC Service Templates

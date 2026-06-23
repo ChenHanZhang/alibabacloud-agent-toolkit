@@ -29,10 +29,10 @@
       "category": "Cloud"
     },
     {
-      "name": "alibabacloud-iac-templates",
+      "name": "alibabacloud-iac-service",
       "source": {
         "source": "local",
-        "path": "./plugins/alibabacloud-iac-templates"
+        "path": "./plugins/alibabacloud-iac-service"
       },
       "policy": {
         "installation": "AVAILABLE",

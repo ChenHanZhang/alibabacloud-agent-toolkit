@@ -1,5 +1,5 @@
 {
-  "name": "alibabacloud-iac-templates",
+  "name": "alibabacloud-iac-service",
   "version": "0.1.0",
   "description": "Discover, manage, and run Alibaba Cloud IaC Service (自动化服务台) Terraform templates from one shared credential.",
   "author": {

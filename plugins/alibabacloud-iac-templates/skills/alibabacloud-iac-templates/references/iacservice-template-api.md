@@ -104,9 +104,22 @@ Response: `TaskId`.
 | `--task-id` | yes | from create-task |
 | `--client-token` | yes | fresh UUID |
 | `--description` | yes | what this run does |
-| `--sub-command` | no | `plan` / `refresh` / `destroy` (omit = apply) |
+| `--sub-command` | no | only `destroy` (and `refresh`). **`plan` is NOT valid** — a default job already plans then waits for approval. Omit for a normal plan→apply run |
 
-Response: `JobId`.
+Response: `JobId`. With `autoApply=false`, the job plans and halts at
+`ConfigProactiveSuccess` (apply) / `Planned` (destroy) until approved via
+operate-job. **Verified live (tested CLI rejects `--sub-command plan`).**
+
+### operate-job (OperateJob) — approve/reject the apply gate
+
+| Param | Required | Notes |
+| --- | --- | --- |
+| `--task-id` | yes | |
+| `--job-id` | yes | the held job |
+| `--operation-type` | yes | `execute` (approve/apply) / `abolish` / `cancel` — **not** Confirm/Apply |
+| `--comment` | no | audit note |
+
+`execute` advances Confirmed → Applying → Applied. Verified live.
 
 ### get-job (GetJob) — poll
 

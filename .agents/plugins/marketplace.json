@@ -27,6 +27,18 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Cloud"
+    },
+    {
+      "name": "alibabacloud-iac-templates",
+      "source": {
+        "source": "local",
+        "path": "./plugins/alibabacloud-iac-templates"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Cloud"
     }
   ]
 }

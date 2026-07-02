@@ -1,34 +1,32 @@
 # alibabacloud-iac-service
 
-Discover, manage, and run Alibaba Cloud **IaC Service** (自动化服务台) Terraform
-templates from one shared credential.
+通过统一凭证发现、管理和运行阿里云 **IaC Service**（自动化服务台）Terraform 模板。
 
-This plugin includes:
+本插件包含：
 
-- Plugin manifests for Codex and Claude Code
-- An MCP server named `alibabacloud-iac-service` constrained to IaC Service
-- A skill that discovers a user's templates (modules), manages versions, and
-  runs them as tasks/jobs with plan-before-apply gating
+- Codex 和 Claude Code 的插件清单（manifest）
+- 一个名为 `alibabacloud-iac-service` 的 MCP server，限定为 IaC Service 产品
+- 一个技能（skill），负责发现用户的模板（modules）、管理版本、以及将模板作为
+  tasks/jobs 运行（含 plan-before-apply 门禁）
 
-## Why
+## 为什么需要这个插件
 
-Custom IaC MCP servers force users to hand-type URLs (no discovery), authorize
-each server separately, and mount one connection per template. This plugin keeps
-a single credential and a single MCP connection: templates are *discovered* via
-`ListModules`, *authored* via `CreateModule`/`CreateModuleVersion`, and *run*
-via `CreateTask`/`CreateJob` — all through one `CallCLI` server.
+自定义 IaC MCP server 迫使用户手动输入 URL（无法发现）、为每个 server 单独授权、
+每个模板挂载一个连接。本插件保持单一凭证和单一 MCP 连接：通过 `ListModules`
+*发现*模板，通过 `CreateModule`/`CreateModuleVersion` *发布*模板，通过
+`CreateTask`/`CreateJob` *运行*模板——全部经由一个 `CallCLI` server 完成。
 
-## Install
+## 安装
 
 ```bash
 npx openplugin aliyun/alibabacloud-agent-toolkit --plugin alibabacloud-iac-service
 ```
 
-Target one client: add `--claude`, `--codex`, or `--qoderwork`.
+指定目标客户端：添加 `--claude`、`--codex` 或 `--qoderwork`。
 
-## MCP
+## MCP 配置
 
-Constrained to IaC Service only:
+限定为 IaC Service 产品：
 
 ```json
 {
@@ -45,18 +43,18 @@ Constrained to IaC Service only:
 }
 ```
 
-## Skills
+## 技能
 
-| Skill | Description |
-|-------|-------------|
-| `alibabacloud-iac-service` | Discover, version, and run IaC Service Terraform templates |
+| 技能 | 说明 |
+|------|------|
+| `alibabacloud-iac-service` | 发现、发布版本、运行 IaC Service Terraform 模板 |
 
-## Workflow
+## 工作流程
 
-1. **Discover** — `list-modules` to see your templates, `get-module` to inspect.
-2. **Manage** — `create-module` / `create-module-version` to author.
-3. **Use** — `create-task` then `create-job` (plan → confirm → apply), polling
-   `get-job`. Destroy requires a second confirmation.
+1. **发现** — `list-modules` 查看模板列表，`get-module` 查看详情。
+2. **管理** — `create-module` / `create-module-version` 发布模板及版本。
+3. **使用** — `create-task` 然后 `create-job`（plan → 确认 → apply），通过
+   `get-job` 轮询状态。Destroy 需要二次确认。
 
-Ad-hoc HCL with no saved template belongs to `alibabacloud-spec-ops`. See the
-skill reference `references/iacservice-template-api.md` for full API contracts.
+临时 HCL 代码（无已保存模板）属于 `alibabacloud-spec-ops`。完整 API 契约见技能
+reference 文档 `references/iacservice-template-api.md`。

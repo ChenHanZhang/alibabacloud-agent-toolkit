@@ -1,153 +1,148 @@
-# Alibaba Cloud IaC Service Template API Reference
+# 阿里云 IaC Service 模板 API 参考
 
-The IaC Service product (`IaCService`, version `2021-08-06`) is the **自动化服务台**.
-It manages reusable Terraform **modules** (templates), turns them into **tasks**,
-and runs each task as a **job**. State is held server-side; everything is
-asynchronous — submit, then poll.
+IaC Service 产品（`IaCService`，版本 `2021-08-06`）即**自动化服务台**。
+它管理可复用的 Terraform **modules**（模板），将模板转化为 **tasks**（任务），
+并将每个任务作为 **job** 运行。状态保存在服务端；所有操作均为异步——提交后轮询。
 
-**ALL commands run through MCP tool `AlibabaCloud___CallCLI`** — never Bash.
-Fully qualified name:
-`mcp__plugin_alibabacloud-iac-service_alibabacloud-iac-service__AlibabaCloud___CallCLI`.
+**所有命令必须通过 MCP 工具 `AlibabaCloud___CallCLI` 执行**——禁止使用 Bash。
+完整工具名：
+`mcp__plugin_alibabacloud-iac-service_alibabacloud-iac-service__AlibabaCloud___CallCLI`。
 
-## Authentication & shared credential
+## 认证与共享凭证
 
-One Alibaba Cloud credential (the host `aliyun configure` profile) is reused for
-every operation. No per-server OAuth, no per-template token. RAM permissions
-needed:
+使用主机上 `aliyun configure` 配置的单一阿里云凭证，覆盖所有操作。无需为每个
+server 单独 OAuth、无需为每个模板单独 token。所需 RAM 权限：
 
 - `iacservice:ListModules`, `iacservice:GetModule`, `iacservice:CreateModule`,
   `iacservice:CreateModuleVersion`
 - `iacservice:CreateTask`, `iacservice:CreateJob`, `iacservice:GetJob`,
   `iacservice:GetExecuteState`
 
-## CLI verb form
+## CLI 命令格式
 
-The `aliyun` CLI accepts the canonical API name directly:
-`aliyun iacservice ListModules ...`. The kebab aliases below mirror the proven
-style already used by `alibabacloud-spec-ops` (`execute-terraform-plan`,
-`get-execute-state`). If a verb is rejected, fall back to the PascalCase API
-name in parentheses. Verify against your proxy/CLI version on first call.
+`aliyun` CLI 直接接受规范 API 名：`aliyun iacservice ListModules ...`。
+下面使用的 kebab-case 别名与 `alibabacloud-spec-ops` 已有风格一致
+（`execute-terraform-plan`、`get-execute-state`）。如果某个别名被拒绝，
+回退到括号中的 PascalCase API 名。首次调用时需根据实际 proxy/CLI 版本验证。
 
-## Lifecycle
+## 生命周期
 
 ```
 ListModules ──▶ GetModule ─▶ CreateTask ─▶ CreateJob(plan) ─▶ GetJob/GetExecuteState
-   (discover)   (inspect)   (bind ver)    (preview)            (poll)
-CreateModule / CreateModuleVersion = author / version a template
-CreateJob(apply|destroy) = run / tear down
+   (发现)        (查看)       (绑定版本)    (预览)              (轮询)
+CreateModule / CreateModuleVersion = 创建 / 发布模板版本
+CreateJob(apply|destroy) = 执行 / 销毁
 ```
 
-## Discover
+## 发现
 
 ### list-modules (ListModules)
 
-Enumerate the caller's templates. The discovery entry point — P1.
+列出调用者的模板。发现阶段的入口——P1。
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--max-results` | no | page size |
-| `--next-token` | no | pagination cursor from prior response |
-| `--keyword` | no | filter by name |
+| `--max-results` | 否 | 每页条数 |
+| `--next-token` | 否 | 上次响应中的分页游标 |
+| `--keyword` | 否 | 按名称过滤 |
 
-Response: `Modules[]{ModuleId, Name, Description, Source, LatestVersion}` + `NextToken`.
+响应：`Modules[]{ModuleId, Name, Description, Source, LatestVersion}` + `NextToken`。
 
 ### get-module (GetModule)
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--module-id` | yes | from list-modules |
+| `--module-id` | 是 | 来自 list-modules |
 
-Response: full module incl. source, latest version, attributes.
+响应：完整模板信息，包含 source、最新版本、属性等。
 
-## Manage
+## 管理
 
 ### create-module (CreateModule)
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--client-token` | yes | fresh UUID `[0-9a-zA-Z-]{1,64}` |
-| `--name` | yes | 2-128 chars |
-| `--source` | yes | `OSS` / `Registry` / `ExportTask` / `Editor` / `Upload` |
-| `--source-path` | cond | location for OSS/Registry sources |
-| `--description` | no | |
+| `--client-token` | 是 | 新生成的 UUID `[0-9a-zA-Z-]{1,64}` |
+| `--name` | 是 | 2-128 字符 |
+| `--source` | 是 | `OSS` / `Registry` / `ExportTask` / `Editor` / `Upload` |
+| `--source-path` | 条件必填 | OSS/Registry 来源时的路径 |
+| `--description` | 否 | |
 
 ### create-module-version (CreateModuleVersion)
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--module-id` | yes | target template |
-| `--client-token` | yes | fresh UUID |
-| `--name` | yes | version label |
-| `--description` | no | |
+| `--module-id` | 是 | 目标模板 |
+| `--client-token` | 是 | 新生成的 UUID |
+| `--name` | 是 | 版本标签 |
+| `--description` | 否 | |
 
-## Use
+## 使用
 
 ### create-task (CreateTask)
 
-Bind a module version to runnable parameters.
+将模板版本绑定为可运行的参数集。
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--client-token` | yes | fresh UUID |
-| `--name` | yes | 2-128 chars |
-| `--module-id` | yes | template to run |
-| `--module-version` | yes | version to pin |
-| `--auto-apply` | no | bool; apply after preview without a stop |
-| `--trigger-strategy` | no | `Manual` / `NewVersion` / `Auto` / `ParameterSetUpdated` |
+| `--client-token` | 是 | 新生成的 UUID |
+| `--name` | 是 | 2-128 字符 |
+| `--module-id` | 是 | 要运行的模板 |
+| `--module-version` | 是 | 要锁定的版本 |
+| `--auto-apply` | 否 | 布尔值；预览后自动 apply 不暂停 |
+| `--trigger-strategy` | 否 | `Manual` / `NewVersion` / `Auto` / `ParameterSetUpdated` |
 
-Response: `TaskId`.
+响应：`TaskId`。
 
 ### create-job (CreateJob)
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--task-id` | yes | from create-task |
-| `--client-token` | yes | fresh UUID |
-| `--description` | yes | what this run does |
-| `--sub-command` | no | only `destroy` (and `refresh`). **`plan` is NOT valid** — a default job already plans then waits for approval. Omit for a normal plan→apply run |
+| `--task-id` | 是 | 来自 create-task |
+| `--client-token` | 是 | 新生成的 UUID |
+| `--description` | 是 | 描述本次运行做什么 |
+| `--sub-command` | 否 | 仅支持 `destroy`（和 `refresh`）。**`plan` 无效**——默认 job 已自动 plan 后等待审批。正常 plan→apply 流程请省略此参数 |
 
-Response: `JobId`. With `autoApply=false`, the job plans and halts at
-`ConfigProactiveSuccess` (apply) / `Planned` (destroy) until approved via
-operate-job. **Verified live (tested CLI rejects `--sub-command plan`).**
+响应：`JobId`。当 `autoApply=false` 时，job 完成 plan 后会在
+`ConfigProactiveSuccess`（apply 场景）/ `Planned`（destroy 场景）状态暂停，
+等待通过 operate-job 审批。**已线上验证（CLI 拒绝 `--sub-command plan`）。**
 
-### operate-job (OperateJob) — approve/reject the apply gate
+### operate-job (OperateJob) — 审批/拒绝 apply 门禁
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--task-id` | yes | |
-| `--job-id` | yes | the held job |
-| `--operation-type` | yes | `execute` (approve/apply) / `abolish` / `cancel` — **not** Confirm/Apply |
-| `--comment` | no | audit note |
+| `--task-id` | 是 | |
+| `--job-id` | 是 | 处于暂停状态的 job |
+| `--operation-type` | 是 | `execute`（审批/apply）/ `abolish` / `cancel` — **不是** Confirm/Apply |
+| `--comment` | 否 | 审计备注 |
 
-`execute` advances Confirmed → Applying → Applied. Verified live.
+`execute` 使状态推进：Confirmed → Applying → Applied。已线上验证。
 
-### get-job (GetJob) — poll
+### get-job (GetJob) — 轮询
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--task-id` | yes | |
-| `--job-id` | yes | |
-| `--task-type` | no | `Task` / `SceneTestingTask` / `Stack` |
+| `--task-id` | 是 | |
+| `--job-id` | 是 | |
+| `--task-type` | 否 | `Task` / `SceneTestingTask` / `Stack` |
 
-### get-execute-state (GetExecuteState) — poll raw terraform
+### get-execute-state (GetExecuteState) — 轮询原始 terraform 状态
 
-| Param | Required | Notes |
+| 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| `--state-id` | yes | from a job / plan |
+| `--state-id` | 是 | 来自 job / plan |
 
-Status: `Pending` / `Planning` / `Applied` / `Errored` …
+状态值：`Pending` / `Planning` / `Applied` / `Errored` ...
 
-## Polling
+## 轮询策略
 
-1. Initial wait ~5 s. 2. Poll every 10 s. 3. Max ~60 attempts. Each poll is a
-separate CallCLI call — no Bash loops. On timeout, report "still running" with
-the JobId/StateId.
+1. 首次等待约 5 秒。2. 每 10 秒轮询一次。3. 最多约 60 次。每次轮询是独立的
+CallCLI 调用——禁止 Bash 循环。超时时报告"仍在运行"并附上 JobId/StateId。
 
-## Constraints
+## 约束
 
-- CallCLI runs remotely: no `file://`, no `$()`, no pipes, no local paths.
-- No `--region` on iacservice verbs — region comes from the module's provider block.
-- Write ops are idempotent on `--client-token`; reuse the same token only for retry.
-- Direct one-shot execution (`execute-terraform-plan/apply/destroy`) is covered
-  by `alibabacloud-spec-ops`; use it for ad-hoc HCL, this skill for sustained
-  templates.
+- CallCLI 远程执行：不支持 `file://`、`$()`、管道、本地路径。
+- iacservice 命令不支持 `--region`——region 由模板 provider block 决定。
+- 写操作基于 `--client-token` 幂等；仅在重试同一调用时复用 token。
+- 一次性直接执行（`execute-terraform-plan/apply/destroy`）由
+  `alibabacloud-spec-ops` 覆盖；临时 HCL 用它，持久模板用本技能。

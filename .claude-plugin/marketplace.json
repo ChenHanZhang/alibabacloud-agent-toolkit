@@ -22,7 +22,7 @@
     },
     {
       "category": "cloud",
-      "description": "Alibaba Cloud AI Ops Plugin - Infrastructure operations workflow with intelligent planning, validation, and execution powered by MCP tooling.",
+      "description": "Alibaba Cloud AI Ops Plugin - infrastructure planning, validation, execution, and reusable Module lifecycle powered by MCP tooling.",
       "keywords": [
         "alibabacloud",
         "aliyun",
@@ -35,22 +35,7 @@
       ],
       "name": "alibabacloud-spec-ops",
       "source": "./plugins/alibabacloud-spec-ops",
-      "version": "0.1.0"
-    },
-    {
-      "category": "cloud",
-      "description": "Discover, manage, and run Alibaba Cloud IaC Service (自动化服务台) Terraform templates from one shared credential.",
-      "keywords": [
-        "alibabacloud",
-        "aliyun",
-        "cloud",
-        "iac",
-        "terraform",
-        "templates"
-      ],
-      "name": "alibabacloud-iac-service",
-      "source": "./plugins/alibabacloud-iac-service",
-      "version": "0.1.0"
+      "version": "0.1.3"
     }
   ]
 }

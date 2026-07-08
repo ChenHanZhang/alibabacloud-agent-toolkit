@@ -164,12 +164,12 @@ Read: .aliyun-ai-ops-spec/{name}/tasks/tf-apply-result.md (if exists)
 Read: .aliyun-ai-ops-spec/{name}/tasks/status.json
 ```
 
-From `status.json`, also capture `state.state_id`. This is the IaC Service
-remote state handle that lets the downstream `executing-plans` skill
-continue on the existing deployment instead of creating fresh resources.
-**Do not modify or delete `state.state_id`** — planning is read-only with
-respect to it. If `status == "executed"` but `state.state_id` is missing,
-flag the legacy edge case to the user (see
+From `status.json`, also capture `state.last_process_id` and related RunIaC
+process fields. These are the remote state handles that let the downstream
+`executing-plans` skill continue on the existing deployment instead of
+creating fresh resources. **Do not modify or delete `state.*process_id`** —
+planning is read-only with respect to them. If `status == "executed"` but
+RunIaC process fields are missing, flag the legacy edge case to the user (see
 [`executing-plans/references/iac-service-api.md` → State Persistence](../../alibabacloud-executing-plans/references/iac-service-api.md))
 so the migration question gets resolved before any new code is generated.
 
@@ -215,13 +215,13 @@ just list resources:**
 >
 > **设计中遗留事项：** {bulleted list of deferred items from Decisions Log, or "无"}
 >
-> **远程状态：** 沿用已有部署 (`state_id: {state.state_id}`)，本次变更会在该状态上做 plan/apply，不会重复创建资源。
+> **远程状态：** 沿用已有部署 (`processID: {state.last_process_id}`)，本次变更会在该状态上做 plan/apply，不会重复创建资源。
 >
 > 在这个基础上，你这次想做什么变更？"
 
 Only after presenting this summary may you proceed to Phase 1 clarification.
 
-When `state.state_id` is absent (e.g. project only reached `validated` and
+When `state.last_process_id` is absent (e.g. project only reached `validated` and
 never executed), omit the "远程状态" line — there is nothing to continue
 on. The design-comprehension portion above is still mandatory.
 
@@ -236,7 +236,7 @@ After understanding the change request, proceed to **Phase 1 (Clarify)** with th
 | Mode decision context | Assess total complexity | Assess **change** complexity (small change → Fast Track) |
 | Design output | New design.md | **Updated** design.md (preserve existing, add/modify sections; append to Decisions Log) |
 | Terraform output | New .tf files | **Modified** .tf files (add resources, change specs) |
-| Status tracking | Start from "designed" | Update existing status, set `"change_type": "modify"`, **preserve `state.state_id`** so executing-plans iterates on the same remote state |
+| Status tracking | Start from "designed" | Update existing status, set `"change_type": "modify"`, **preserve `state.*process_id`** so executing-plans iterates on the same remote state |
 
 **Change complexity → Mode mapping:**
 
@@ -1047,7 +1047,10 @@ After the call returns, tell the user explicitly:
     "execution": "pending"
   },
   "state": {
-    "state_id": null,
+    "last_process_id": null,
+    "last_plan_process_id": null,
+    "last_apply_process_id": null,
+    "last_destroy_process_id": null,
     "last_plan_at": null,
     "last_apply_at": null,
     "last_destroy_at": null
@@ -1083,8 +1086,8 @@ TodoWrite:
       activeForm: "并行评审 spec compliance 与 code quality"
       description: "Invoke alibabacloud-validate to dispatch spec-reviewer + code-quality-reviewer subagents in parallel"
       status: pending
-    - subject: "部署执行：terraform plan/apply via IaC Service"
-      activeForm: "通过 IaC Service 远程执行 plan 与 apply"
+    - subject: "部署执行：terraform plan/apply via RunIaC"
+      activeForm: "通过 RunIaC 远程执行 plan 与 apply"
       description: "Invoke alibabacloud-executing-plans (requires explicit user confirmation before apply)"
       status: pending
 ```

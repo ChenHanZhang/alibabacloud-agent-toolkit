@@ -138,7 +138,8 @@ Then provide the terraform-codegen skill with a clear instruction based on the d
 > - HA: {multi-AZ, backup configs}
 >
 > IMPORTANT: Output ALL code in a single main.tf file. Do NOT split into separate files.
-> File internal order: terraform {} → provider → variables → locals → data → resources → outputs"
+> File internal order: provider → variables → locals → data → resources → outputs.
+> Do NOT include terraform { required_providers { ... } }; RunIaC rejects explicit required_providers blocks."
 
 ### Step 3: Write Generated Code to Single File
 
@@ -146,16 +147,17 @@ After terraform-codegen produces the HCL, write **ALL** code into a single `main
 
 ```
 .aliyun-ai-ops-spec/{name}/designs/terraform/
-└── main.tf          # ALL code: terraform{}, provider, variables, locals, data, resources, outputs
+└── main.tf          # ALL code: provider, variables, locals, data, resources, outputs
 ```
 
 **MANDATORY rules:**
 
 - All Terraform code MUST live in one `main.tf` — never split into variables.tf, outputs.tf, locals.tf, etc.
-- Internal ordering: `terraform {}` → `provider` → `variables` → `locals` → `data sources` → `resources` → `outputs`
+- Internal ordering: `provider` → `variables` → `locals` → `data sources` → `resources` → `outputs`
+- Do NOT include `terraform { required_providers { ... } }`; downstream execution uses RunIaC and rejects explicit `required_providers` blocks
 - Every `variable` MUST have a `default` value — ensures zero-input deployment without failure
 - This applies regardless of code length or complexity
-- Reason: simplifies IaC Service remote execution (single template body) and guarantees deployability
+- Reason: simplifies RunIaC remote execution (single inline HCL body) and guarantees deployability
 
 ### Step 4: Generate CLI Scripts (if needed)
 

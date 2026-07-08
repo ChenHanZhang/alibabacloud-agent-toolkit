@@ -47,7 +47,7 @@ re-introduction of a `hooks/` symlink.
 | Plugin | Status | Description |
 |--------|--------|-------------|
 | [alibabacloud-core](plugins/alibabacloud-core/) | Active | Alibaba Cloud OpenAPI SDK code generation using the local `alibabacloud-core` MCP server. |
-| [alibabacloud-spec-ops](plugins/alibabacloud-spec-ops/) | Active | Spec-driven Alibaba Cloud infrastructure ops workflow: planning → Terraform codegen → validation → execution via IaC Service. |
+| [alibabacloud-spec-ops](plugins/alibabacloud-spec-ops/) | Active | Spec-driven Alibaba Cloud infrastructure ops workflow: planning → Terraform codegen → validation → execution via MCP Server Core RunIaC. |
 | `alibabacloud-agent` | Placeholder | Reserved for future agent-focused capabilities. |
 | `alibabacloud-data-analytics` | Placeholder | Reserved for future analytics and data workflow capabilities. |
 
@@ -128,9 +128,9 @@ Want an expert-guided, spec-driven flow that takes "I need a web app on aliyun" 
 1. **planning** — expert dialog across **Security / Cost / Efficiency / Stability**; turns vague needs into a precise `design.md` + architecture diagram
 2. **code** — Terraform HCL generated against live `alicloud_*` schemas (IaCService-verified)
 3. **validate** — spec + code-quality reviewers run in parallel → "deploy?"
-4. **execute** — `terraform plan` + `apply` run remotely via IaC Service; remote state persisted
+4. **execute** — `terraform plan` + `apply` run remotely via MCP Server Core RunIaC; remote state persisted
 
-**Day-2 ready.** 再说一句"升配 RDS / 加 Redis / 缩容"，原 `design.md` 自动加载，在已有 `state_id` 上做增量 plan/apply，不重建已有资源。所有产物保存在 `.aliyun-ai-ops-spec/{name}/`，跨会话可审、可迭代。
+**Day-2 ready.** 再说一句"升配 RDS / 加 Redis / 缩容"，原 `design.md` 自动加载，在已有 RunIaC `processID` 上做增量 plan/apply，不重建已有资源。所有产物保存在 `.aliyun-ai-ops-spec/{name}/`，跨会话可审、可迭代。
 
 ## Data Collection
 

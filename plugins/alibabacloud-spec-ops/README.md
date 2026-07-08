@@ -14,8 +14,8 @@ Then you get:
 - 🧠 **一组阿里云专家**陪你**澄清需求** —— Security / Cost / Efficiency / Stability 四维度逐项问诊，把模糊的"我想要个 web app"挖成精确的架构方案
 - 📝 **schema-verified Terraform** —— IaCService 实时校验，不胡编资源属性
 - ✅ **双独立 reviewer 并行评审** —— spec 满足度 + 代码质量，挡在执行之前
-- 🚀 **远程沙箱执行** —— IaC Service 帮你跑 plan + apply，一次授权一气呵成，全链路审计
-- ↻ **可持续迭代的设计 + 状态** —— `design.md` 和远程 `state_id` 跨会话保留，Day-2 一句"升配 RDS"就在原有基础上做增量，不重建已有资源
+- 🚀 **远程沙箱执行** —— MCP Server Core `RunIaC` 帮你跑 plan + apply，一次授权一气呵成，全链路审计
+- ↻ **可持续迭代的设计 + 状态** —— `design.md` 和远程 RunIaC `processID` 跨会话保留，Day-2 一句"升配 RDS"就在原有基础上做增量，不重建已有资源
 - 📦 **Module 沉淀与复用** —— 验证过的 POC 可晋升为版本化 Module，通过 IaCService `modules → tasks → jobs` 复用和持续维护
 
 ## Workflow at a Glance
@@ -42,7 +42,7 @@ flowchart LR
 
 Two infrastructure lanes run underneath every stage:
 
-- **MCP (Alibaba Cloud CLI) drives every stage** — real-time docs lookup, schema verification, remote IaC Service execution, and IaCService Module/task/job operations
+- **MCP drives every stage** — real-time docs lookup, schema verification, remote RunIaC execution, and IaCService Module/task/job operations
 - **Observability (Trace + Telemetry) spans the full lifecycle** — every tool call's duration, status, request-id, and outcome is recorded for audit
 
 ## Get Started — Step by Step
@@ -83,7 +83,7 @@ writing-plans → terraform-codegen → validate (spec + quality reviewers in pa
 
 ### 5. Approve the deploy — the ONLY user gate
 
-After validation passes, the plugin asks once whether to deploy. Reply **"部署"** (or `yes`). Then `terraform plan` + `apply` run **automatically** through Alibaba Cloud IaC Service — sandboxed, with a full audit trace. You can still interrupt mid-stream if `plan` output reveals anything unexpected; spec-driven failures (e.g. a SKU offline in the target AZ) automatically stop and ask you for a replacement.
+After validation passes, the plugin asks once whether to deploy. Reply **"部署"** (or `yes`). Then `terraform plan` + `apply` run **automatically** through MCP Server Core `AlibabaCloud___RunIaC` — sandboxed, with a full audit trace. You can still interrupt mid-stream if `plan` output reveals anything unexpected; spec-driven failures (e.g. a SKU offline in the target AZ) automatically stop and ask you for a replacement.
 
 ### 6. Iterate (Day-2)
 
@@ -93,7 +93,7 @@ Need to scale up or add a service later? Just say it:
 /alibabacloud-spec-ops:alibabacloud-planning   RDS 升配到 2C4G + 加一台 ECS
 ```
 
-The plugin auto-detects the modification intent, loads the previous `design.md`, and continues on the same remote `state_id` — your existing resources stay, only the delta is applied.
+The plugin auto-detects the modification intent, loads the previous `design.md`, and continues on the same remote RunIaC `processID` — your existing resources stay, only the delta is applied.
 
 ### 7. Promote and reuse Modules
 
@@ -106,7 +106,7 @@ When a POC is validated, promote it into a reusable Module:
 The Module lifecycle keeps a separate IaCService template state:
 
 ```text
-POC execution: execute-terraform-plan/apply + state_id
+POC execution: AlibabaCloud___RunIaC plan/apply + processID
 Reusable Module: ListModules/CreateModuleVersion/CreateTask/CreateJob + task/job ids
 ```
 
@@ -143,7 +143,7 @@ reused, or maintained over time.
 
 ### 4. Execute — 人工确认 + 沙箱执行
 
-通过 MCP 调用阿里云 **IaC Service** 远程执行，全程沙箱隔离、零本地风险。严格遵循 Human-In-The-Loop 原则：
+通过 MCP Server Core 的 **AlibabaCloud___RunIaC** 远程执行，全程沙箱隔离、零本地风险。严格遵循 Human-In-The-Loop 原则：
 
 - 用户在 Validate 出口**一次性授权**整条 plan + apply 链路
 - 自动展示 `terraform plan` 变更详情，但**不再二次拦截**
@@ -154,7 +154,7 @@ reused, or maintained over time.
 
 ### ↻ Day-2 — 持续维护与增量迭代
 
-基础设施不是一次性交付，而是持续演进。当用户说"升配 / 扩容 / 加 Redis"，spec-ops 自动检测变更意图并扫描 `.aliyun-ai-ops-spec/` 已有项目，**先读全原 `design.md` 内化原设计意图**，再加载现有 Terraform 代码和执行历史作为上下文。变更对话以"在已有架构基础上做 delta"的方式进行 —— 只改需要变的部分。然后走同一条 Plan → Code → Validate → Execute 流水线，**复用远程 `state_id`**，在原有资源状态上做增量 plan/apply，不重建已有资源。
+基础设施不是一次性交付，而是持续演进。当用户说"升配 / 扩容 / 加 Redis"，spec-ops 自动检测变更意图并扫描 `.aliyun-ai-ops-spec/` 已有项目，**先读全原 `design.md` 内化原设计意图**，再加载现有 Terraform 代码和执行历史作为上下文。变更对话以"在已有架构基础上做 delta"的方式进行 —— 只改需要变的部分。然后走同一条 Plan → Code → Validate → Execute 流水线，**复用远程 RunIaC `processID`**，在原有资源状态上做增量 plan/apply，不重建已有资源。
 
 每一次迭代都有据可循，源 `design.md` 与 `.tf` 始终同步反映真实部署。
 
@@ -167,7 +167,7 @@ reused, or maintained over time.
 - **Reuse**：通过 `CreateTask` / `CreateJob` 运行模板，先展示 plan，再通过 `OperateJob` 审批执行。
 - **Maintain**：比较变量、输出、默认值和外部前置项，按 patch/minor/major 维护版本和 changelog。
 
-Module 生命周期不复用 ad hoc `state_id`。它记录的是 IaCService Module/task/job
+Module 生命周期不复用 ad hoc RunIaC `processID`。它记录的是 IaCService Module/task/job
 信息，适合像"标准 OpenCode 沙箱"这种需要反复创建、升级、销毁和排障的场景。
 
 ## Quality In, Quality Out
@@ -213,13 +213,13 @@ All artifacts live under `.aliyun-ai-ops-spec/{requirement-name}/`:
 │       ├── examples/basic/main.tf
 │       └── module-manifest.json
 └── tasks/
-    ├── status.json            # Pipeline state + state_id for Day-2
+    ├── status.json            # Pipeline state + RunIaC process IDs for Day-2
     ├── validation-report.md
     ├── tf-plan-result.md
     └── tf-apply-result.md
 ```
 
-`status.json` carries the IaC Service `state_id` so the next iteration continues on the same remote state instead of recreating resources.
+`status.json` carries RunIaC process IDs so the next iteration continues on the same remote state instead of recreating resources.
 
 When a project is promoted to a reusable Module, `status.json` also carries a
 separate `module` object:
@@ -227,7 +227,9 @@ separate `module` object:
 ```json
 {
   "state": {
-    "state_id": "state-xxxxx"
+    "last_process_id": "iac_xxxxx",
+    "last_plan_process_id": "iac_xxxxx",
+    "last_apply_process_id": "iac_xxxxx"
   },
   "module": {
     "name": "opencode-sandbox-ecs",
@@ -239,7 +241,7 @@ separate `module` object:
 }
 ```
 
-`state.state_id` is for ad hoc POC execution. `module.*` is for reusable
+`state.last_process_id` and related RunIaC process fields are for ad hoc POC execution. `module.*` is for reusable
 IaCService modules/tasks/jobs. Do not interchange them.
 
 ## Install
@@ -287,7 +289,7 @@ The server is named distinctly from `alibabacloud-core` to avoid namespace colli
 | `alibabacloud-writing-plans` | Convert approved designs into Terraform HCL via the codegen skill |
 | `alibabacloud-terraform-codegen` | Generate and modify Alibaba Cloud Terraform HCL code |
 | `alibabacloud-validate` | Dual review (spec compliance + code quality) — auto-runs after codegen |
-| `alibabacloud-executing-plans` | Execute validated Terraform plans through Alibaba Cloud IaC Service |
+| `alibabacloud-executing-plans` | Execute validated Terraform plans through MCP Server Core RunIaC |
 | `alibabacloud-module-lifecycle` | Promote validated POCs into reusable Modules, publish versions, run IaCService tasks/jobs, and maintain Module versions |
 | `alibabacloud-ram-permission-diagnose` | Diagnose and repair RAM permission errors (403 / NoPermission / etc.) |
 

@@ -35,9 +35,9 @@ maintain a Module over time.
 
 `spec-ops` has two IaC execution lanes. Keep them separate:
 
-| Lane | Skill | IaCService API shape | State stored in `status.json` |
+| Lane | Skill | Execution API shape | State stored in `status.json` |
 | --- | --- | --- | --- |
-| POC / ad hoc HCL | `alibabacloud-executing-plans` | `execute-terraform-plan/apply/destroy` | `state.state_id` |
+| POC / ad hoc HCL | `alibabacloud-executing-plans` | MCP Server Core `AlibabaCloud___RunIaC` (`plan`/`apply`/`destroy`) | `state.last_process_id`, `state.last_plan_process_id`, `state.last_apply_process_id` |
 | Reusable Module | `alibabacloud-module-lifecycle` | `modules -> tasks -> jobs` | `module.module_id`, `module.module_version`, `module.task_id`, `module.job_id` |
 
 Do not silently convert a POC state into a template task. Promotion is an
@@ -102,7 +102,8 @@ Update `tasks/status.json` with a separate `module` object:
 }
 ```
 
-Keep existing `state.state_id` untouched. It belongs to ad hoc POC execution.
+Keep existing `state.*` RunIaC process fields untouched. They belong to ad hoc
+POC execution.
 
 ## Workflow A: Discover Existing Modules
 

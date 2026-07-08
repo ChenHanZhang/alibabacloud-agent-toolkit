@@ -1,17 +1,17 @@
 # Architecture Topology HTML Generation Guide
 
 > **Purpose** — Tell another agent exactly how to turn an Alibaba Cloud Terraform
-> module + its applied remote state into a single self-contained HTML page that
-> renders an architecture topology diagram in a clean Google-light style, plus a
-> Chinese resource overview, a key-access strip, a resource-detail grid, and a
-> Terraform outputs table.
+> project plus its RunIaC apply result into a single self-contained HTML page
+> that renders an architecture topology diagram in a clean Google-light style,
+> plus a Chinese resource overview, a key-access strip, a resource-detail grid,
+> and a Terraform outputs table.
 >
 > **Reference output** — `.aliyun-ai-ops-spec/python-web/topology.html` (the
 > "golden" example this guide was extracted from).
 >
 > **When to use** — Whenever a user (or another skill) asks for a visual
 > topology / architecture overview HTML based on a Terraform project that has
-> been applied via `aliyun iacservice`.
+> been applied via `alibabacloud-spec-ops.AlibabaCloud___RunIaC`.
 
 ---
 
@@ -42,26 +42,32 @@ If any of these is missing the output is non-conforming.
 
 | Input | Path / Source | How to read |
 |---|---|---|
-| `state_id` | `<project>/tasks/status.json` → `state.state_id` | `Read` tool |
+| RunIaC process IDs | `<project>/tasks/status.json` → `state.last_process_id`, `state.last_apply_process_id` | `Read` tool |
 | Terraform template | `<project>/designs/terraform/main.tf` (and any other `*.tf` in that folder) | `Read` tool |
-| Applied remote state | Alibaba Cloud IaC Service API | `aliyun iacservice get-execute-state --state-id <state_id>` via the MCP `AlibabaCloud___CallCLI` tool |
+| Apply result | `<project>/tasks/tf-apply-result.md` plus the terminal `AlibabaCloud___GetTask` result captured by `alibabacloud-executing-plans` | `Read` tool |
 
-The `get-execute-state` response is a JSON envelope:
+The RunIaC/GetTask terminal response exposes outputs in `result` and the
+workflow records the plan/apply summaries under `tasks/`. Unlike the legacy
+IaCService `get-execute-state` path, this guide must not call
+`aliyun iacservice get-execute-state` directly.
 
 ```json
 {
-  "logFile": { "tf-apply.run.log": "..." },
-  "requestId": "...",
-  "state": "<stringified Terraform state JSON>",
-  "status": "Applied"
+  "processID": "iac_xxx",
+  "status": "Succeeded",
+  "nextAction": "None",
+  "result": {
+    "output_name": {
+      "value": "..."
+    }
+  }
 }
 ```
 
-`state` is a **string** containing the standard Terraform state JSON. You **must
-`json.loads(...)` it twice**: once for the envelope, once for `state` itself.
-
-Outer keys after parsing: `version`, `terraform_version`, `serial`, `lineage`,
-`outputs`, `resources`, `check_results`.
+When raw Terraform state is unavailable, build the topology inventory from the
+Terraform resources declared in `designs/terraform/*.tf`, the apply result
+resource table, and the RunIaC outputs. Do not invent provider attributes that
+are absent from these inputs.
 
 ---
 
@@ -72,16 +78,16 @@ digraph flow {
   rankdir=LR;
   node [shape=box, style=rounded];
 
-  read_status [label="Read tasks/status.json\n→ state_id"];
+  read_status [label="Read tasks/status.json\n→ RunIaC process IDs"];
   read_tf [label="Read designs/terraform/*.tf"];
-  call_iac [label="aliyun iacservice\nget-execute-state"];
-  parse [label="Parse envelope\n+ inner state JSON"];
-  slim [label="Slim state\n(keep ~50 keys/resource)"];
+  read_apply [label="Read tasks/tf-apply-result.md\n+ GetTask result"];
+  parse [label="Parse Terraform resources\n+ outputs"];
+  slim [label="Normalize inventory\n(keep display-safe fields)"];
   count [label="Aggregate counts\n(ECS, RDS, OSS, …)"];
   render [label="Emit topology.html\n(template fill)"];
 
-  read_status -> call_iac;
-  call_iac -> parse;
+  read_status -> parse;
+  read_apply -> parse;
   read_tf -> render;
   parse -> slim -> count -> render -> verify;
 }
@@ -92,8 +98,8 @@ Concrete tool order:
 ```
 1. Read   .../<project>/tasks/status.json
 2. Read   .../<project>/designs/terraform/main.tf
-3. MCP    AlibabaCloud___CallCLI  →  aliyun iacservice get-execute-state --state-id <id>
-4. Bash   python3  → parse + slim + count → /tmp/<project>-state.json
+3. Read   .../<project>/tasks/tf-apply-result.md
+4. Bash   python3  → parse + normalize + count → /tmp/<project>-topology.json
 5. Write  .../<project>/topology.html  (using the template skeleton in §10)
 6. Bash   python3 -m http.server <port>  (background)
    open the html page using default broswer
@@ -104,72 +110,65 @@ Always run step 6. Skipping verification = guessing.
 
 ---
 
-## 3. State extraction (Python recipe)
+## 3. Inventory extraction (Python recipe)
 
-Run inside Bash. Persists a slim state to `/tmp/<project>-state.json` so it can
-be re-read by later steps without bloating the agent's context.
+Run inside Bash. Persists a slim inventory to `/tmp/<project>-inventory.json`
+so it can be re-read by later steps without bloating the agent's context.
 
 ```python
-import json, os
-ENVELOPE_PATH = os.environ['ENVELOPE_PATH']  # the persisted-output JSON file
-PROJECT       = os.environ.get('PROJECT', 'project')
+import json, os, re
+from pathlib import Path
 
-with open(ENVELOPE_PATH) as f:
-    data = json.load(f)
-parsed = json.loads(data[0]['text'])     # MCP wrapper unwrap
-state  = json.loads(parsed['state'])     # inner Terraform state
+PROJECT = os.environ.get('PROJECT', 'project')
+ROOT = Path(os.environ['PROJECT_ROOT'])
+STATUS = json.loads((ROOT / 'tasks/status.json').read_text())
+APPLY_MD = (ROOT / 'tasks/tf-apply-result.md').read_text()
+TF_TEXT = '\n'.join(p.read_text() for p in sorted((ROOT / 'designs/terraform').glob('*.tf')))
 
-KEEP = {
-  'id','vpc_id','vswitch_id','security_group_id','security_group_ids',
-  'cidr_block','zone_id','availability_zone','region_id','instance_type',
-  'instance_name','image_id','status','public_ip','private_ip',
-  'primary_ip_address','ip_address','vpc_name','vswitch_name',
-  'security_group_name','description','engine','engine_version',
-  'instance_storage','db_instance_storage_type','category','port',
-  'connection_string','allocation_id','address_name','bandwidth',
-  'instance_id','data_base_name','character_set','account_name','privilege',
-  'bucket','storage_class','intranet_endpoint','extranet_endpoint',
-  'role_name','policy_name','policy_type','tags','type','ip_protocol',
-  'port_range','cidr_ip','policy','arn','assume_role_policy_document',
-  'creation_time','image_owner_alias','os_name_en','platform','memory',
-  'cpu','ram_role_name','address','isp','net_type','db_names',
-  'system_disk_category','system_disk_size','system_disk_performance_level',
-  'host_name','internet_max_bandwidth_out','internet_charge_type',
-  'instance_charge_type','master_zone','category_name','master_instance_id',
-  'security_ips','deletion_protection','engine_minor_version',
-  'db_instance_class','connection_mode',
+def hcl_blocks(kind):
+    pat = re.compile(rf'{kind}\s+"([^"]+)"(?:\s+"([^"]+)")?\s*\{{', re.M)
+    for m in pat.finditer(TF_TEXT):
+        yield {
+            'kind': kind,
+            'type': m.group(1),
+            'name': m.group(2),
+            'address': f'{m.group(1)}.{m.group(2)}' if m.group(2) else m.group(1),
+        }
+
+resources = list(hcl_blocks('resource'))
+outputs = {}
+for line in APPLY_MD.splitlines():
+    m = re.match(r'\|\s*([A-Za-z0-9_-]+)\s*\|\s*(.*?)\s*\|$', line)
+    if m and m.group(1).lower() not in {'name', '---'}:
+        outputs[m.group(1)] = {'value': m.group(2)}
+
+inventory = {
+    'status': STATUS.get('status'),
+    'last_apply_at': STATUS.get('state', {}).get('last_apply_at'),
+    'resources': resources,
+    'outputs': outputs,
+    'apply_result_markdown': APPLY_MD,
 }
 
-slim = {'status': parsed['status'], 'outputs': state.get('outputs', {}), 'resources': []}
-for r in state.get('resources', []):
-    insts = []
-    for inst in r.get('instances', []):
-        attrs = inst.get('attributes', {})
-        insts.append({k: attrs.get(k) for k in KEEP if k in attrs})
-    slim['resources'].append({
-        'mode': r.get('mode'),  # 'managed' | 'data'
-        'type': r.get('type'),
-        'name': r.get('name'),
-        'instances': insts,
-    })
-
-with open(f'/tmp/{PROJECT}-state.json', 'w') as f:
-    json.dump(slim, f, ensure_ascii=False, indent=2)
+with open(f'/tmp/{PROJECT}-inventory.json', 'w') as f:
+    json.dump(inventory, f, ensure_ascii=False, indent=2)
 ```
 
-**Never** dump the full state into the HTML — passwords, ARNs, and policy
-documents may live there. The slim allow-list above is the contract.
+If the terminal `AlibabaCloud___GetTask` result is still available in context,
+merge its `result` outputs into `inventory.outputs`. Treat HCL declarations,
+`tf-apply-result.md`, and GetTask outputs as the only authoritative inputs.
+Never invent provider attributes that are absent from these inputs.
 
 ---
 
 ## 4. Aggregation rules — what to count for 「本次架构概览」
 
-For each `slim['resources']` entry, classify by `type` then aggregate. Only
-**managed** resources count; skip `mode == "data"`.
+For each `inventory['resources']` entry, classify by `type` then aggregate.
+Only `resource` blocks count; skip `data` blocks.
 
 | Stat label (zh) | What it counts | Sub-line shown under value |
 |---|---|---|
-| 资源总数 | `len([r for r in resources if r.mode=='managed'])` | 固定文本 `Terraform 托管` |
+| 资源总数 | `len(resources)` | 固定文本 `Terraform 托管` |
 | ECS 云服务器 | count of `alicloud_instance` | `<instance_type> · <zone>` (first instance) |
 | RDS 云数据库 | count of `alicloud_db_instance` | `<engine> <engine_version> <category> · <zone>` |
 | OSS 存储桶 | count of `alicloud_oss_bucket` | `<storage_class> · 私有/公有 · 加密算法` |
@@ -359,7 +358,7 @@ Counter unit by category (Chinese measure word):
 Rules:
 
 - Use 4 to 6 cards. Skip cards with no data (e.g. no SLB → skip SLB card).
-- **Never** include `state_id` or `last_validation_id` — those are operator
+- **Never** include RunIaC `processID` or `last_validation_id` — those are operator
   metadata and clutter the UX.
 - 创建成功时间 is always **last** and always uses UTC+8 (see §11).
 
@@ -481,7 +480,7 @@ as `••••••` with `title="(sensitive)"`. Never inline the secret.
 ```html
 <footer class="footer">
   <span>Source · main.tf (alicloud provider {version}) · Terraform {tf_version}</span>
-  <span>Generated from <code>aliyun iacservice get-execute-state</code></span>
+  <span>Generated from <code>AlibabaCloud___RunIaC</code> / <code>AlibabaCloud___GetTask</code></span>
 </footer>
 ```
 
@@ -556,9 +555,10 @@ Mappings to make:
 
 ### Multi-AZ extension
 
-If the state shows ≥2 distinct `zone_id`/`availability_zone` values inside a
-VPC, render **one `frame-az` per zone** stacked vertically inside the VPC frame,
-each with its own VSwitch + SG + compute children. Title each AZ frame
+If the inventory or Terraform variables show >=2 distinct
+`zone_id`/`availability_zone` values inside a VPC, render **one `frame-az` per
+zone** stacked vertically inside the VPC frame, each with its own VSwitch,
+security group, and compute children. Title each AZ frame
 `VSwitch · <name> (<zone>)`.
 
 ### Multi-tier extension (web/app/db tiers)
@@ -785,14 +785,11 @@ the z-index ladder. Re-check the four rules above.
 ```python
 def generate_topology_html(project_dir: Path) -> Path:
     status   = json.loads((project_dir / 'tasks/status.json').read_text())
-    state_id = status['state']['state_id']
+    apply_md = (project_dir / 'tasks/tf-apply-result.md').read_text()
+    tf       = parse_terraform(project_dir / 'designs/terraform')
+    outputs  = parse_outputs_from_apply_result(apply_md)
 
-    envelope = mcp.aliyun_call_cli(
-        f'aliyun iacservice get-execute-state --state-id {state_id}')
-    state    = json.loads(json.loads(envelope[0]['text'])['state'])
-
-    inv = aggregate(state)             # §4
-    tf  = parse_terraform(project_dir / 'designs/terraform')
+    inv = aggregate_from_terraform_and_apply(tf, apply_md, outputs)  # §4
 
     html = render_template(
         project        = status['name'],
@@ -803,9 +800,9 @@ def generate_topology_html(project_dir: Path) -> Path:
         utc8_time      = to_utc8(status['state']['last_apply_at']),
         overview_stats = inv.stats,           # ordered list per §4
         access_info    = inv.access,          # IPs / endpoints / time
-        topology       = build_topology(state),  # §9
-        resources      = list_managed(state),
-        outputs        = state['outputs'],
+        topology       = build_topology(inv),    # §9
+        resources      = inv.resources,
+        outputs        = inv.outputs,
         tf_versions    = tf.versions,
     )
     out = project_dir / 'topology.html'
@@ -822,7 +819,7 @@ file is the source of truth for spacing / order / wording.
 
 ```
 [ ] Page loads at file:// or http:// with 0 console errors.
-[ ] Top bar status pill matches state.status (Applied / Failed / Destroyed).
+[ ] Top bar status pill matches `tasks/status.json` status (Applied / Failed / Destroyed).
 [ ] Overview heading is exactly: 本次架构概览  (no English fallback).
 [ ] Overview head shows: 地域 / 可用区 / 创建成功时间 (UTC+8).
 [ ] Every overview stat card has a count > 0.
@@ -843,15 +840,16 @@ If any box is unchecked, the agent **must** fix or report it before exiting.
 
 - ❌ Don't add Mermaid, D3, ECharts, React, Vue, Tailwind, or any framework.
   The page is single-file vanilla HTML on purpose.
-- ❌ Don't render the entire raw Terraform state — even after slimming, omit
+- ❌ Don't render raw provider state if it happens to be available — omit
   policy_documents, account_password, ecs_password, and `tags` larger than 4
   entries.
-- ❌ Don't show `state_id`, `last_validation_id`, or any internal task UUID
+- ❌ Don't show RunIaC `processID`, `last_validation_id`, or any internal task UUID
   in the user-visible chrome. They belong in HTML comments at most.
 - ❌ Don't translate Terraform addresses (`alicloud_instance.app`) to Chinese.
   They're identifiers, not prose.
-- ❌ Don't invent fields the state doesn't expose. If `instance_type` is
-  missing, omit the row instead of writing `unknown`.
+- ❌ Don't invent fields the HCL / apply result / GetTask output does not
+  expose. If `instance_type` is missing, omit the row instead of writing
+  `unknown`.
 - ❌ Don't leave temporary screenshots / dev-server processes around. Always
   clean them up at the end (`kill <pid>`, `rm <png>`).
 

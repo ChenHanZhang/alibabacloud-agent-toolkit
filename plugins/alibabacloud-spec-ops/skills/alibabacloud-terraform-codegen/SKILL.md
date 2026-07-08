@@ -49,17 +49,19 @@ reason. Paraphrasing real output is fine; fabricating it is not.
 ### 3. No local `terraform` execution
 
 This skill NEVER runs `terraform` locally — not `fmt`, `init`, `validate`,
-`plan`, or `apply`. Validation routes through MCP (Step 6, `aliyun
-iacservice validate-module` via `AlibabaCloud___CallCLI`). Plan and apply
-belong to a separate skill — in the spec-ops workflow that is
-`alibabacloud-executing-plans`, which runs through Alibaba Cloud IaC
-Service rather than a local binary. See Step 8 for the handoff.
+`plan`, `apply`, or `destroy`. Validation routes through MCP (Step 6,
+`aliyun iacservice validate-module` via `AlibabaCloud___CallCLI`). Plan,
+apply, and destroy belong to a separate skill — in the spec-ops workflow that
+is `alibabacloud-executing-plans`, which runs through MCP Server Core
+`AlibabaCloud___RunIaC` rather than a local binary or IaCService CLI command.
+See Step 8 for the handoff.
 
 ## Environment (soft recommendations)
 
-- **MCP** — the `alibabacloud-spec-ops` MCP server must be reachable; all
-  IaCService calls (Step 6 validation, Step 8 handoff context) go through
-  `AlibabaCloud___CallCLI`. No local `terraform` binary is required.
+- **MCP** — the `alibabacloud-spec-ops` MCP server must be reachable. Step 6
+  validation goes through `AlibabaCloud___CallCLI`; downstream Terraform
+  execution goes through `AlibabaCloud___RunIaC`. No local `terraform` binary
+  is required.
 - **Network** is required — Step 4.2 WebFetches each resource's provider doc.
 
 ## Workflow
@@ -209,37 +211,11 @@ Resolve via `data` blocks, never literals. These also pass Step 4's gate:
 
 #### 5.4 Provider block (content contract)
 
-Two Terraform blocks must appear **somewhere** in the project's `*.tf`
-files. Terraform merges all `*.tf` in a directory, so *file organization
-is a style choice, not a contract* — see "File organization" below.
-
-**Block 1 — `terraform { required_providers {} }`**:
-
-```hcl
-terraform {
-  required_version = ">= 1.5"
-  required_providers {
-    alicloud = {
-      source  = "aliyun/alicloud"
-      version = "~> 1.274"
-    }
-  }
-}
-```
-
-- Provider version: resolve the latest published stable `aliyun/alicloud` 1.x
-  version, then write a pessimistic minor constraint (`1.278.0` -> `~> 1.278`).
-  Lookup sources, in order:
-  1. `https://registry.terraform.io/v1/providers/aliyun/alicloud/versions`
-  2. `https://registry.terraform.io/providers/aliyun/alicloud/latest`
-  3. `https://github.com/aliyun/terraform-provider-alicloud/releases` or
-     `https://github.com/aliyun/terraform-provider-alicloud/tags`
-- If lookup fails, fall back to `~> 1.274`. Accepted form is `~> 1.<minor>`
-  from a confirmed published 1.x release. Do NOT write open-ended constraints
-  (`>= 1.x`, `>= 1.239.0`) or bare version strings.
-
-**Block 2 — `provider "alicloud" {}`** with BOTH `region = var.region`
-and `configuration_source`:
+The project MUST include an explicit `provider "alicloud" {}` block with BOTH
+`region = var.region` and `configuration_source`. Do **not** emit a
+`terraform { required_providers { ... } }` block; downstream execution uses
+MCP Server Core RunIaC, whose HCL contract rejects explicit
+`required_providers` blocks.
 
 ```hcl
 provider "alicloud" {
@@ -252,25 +228,17 @@ provider "alicloud" {
 - `region` MUST reference `var.region`, not a hardcoded literal.
 
 **File organization (recommended, not required)**: conventional split is
-`terraform.tf` (Block 1) + `providers.tf` (Block 2). Also acceptable:
-a single `versions.tf` containing both blocks, or either block at the
-top of `main.tf`. Pick what fits the project — Terraform merges all
-`*.tf` equivalently. Do NOT add a filename check; run the content check
-below instead.
+`providers.tf` for the provider block, or the provider block at the top of
+`main.tf`. Pick what fits the project — Terraform merges all `*.tf`
+equivalently. Do NOT add a filename check; run the content check below
+instead.
 
 **Post-generation verification (cross-file content grep)**:
 
 ```bash
-# 1. required_providers has aliyun/alicloud with a ~> 1.<minor> version
-awk '
-  /required_providers[[:space:]]*{/ { in_req=1 }
-  in_req && /alicloud[[:space:]]*=[[:space:]]*{/ { in_ali=1 }
-  in_ali && /source[[:space:]]*=[[:space:]]*"aliyun\/alicloud"/ { source=1 }
-  in_ali && /version[[:space:]]*=[[:space:]]*"~>[[:space:]]*1\.[0-9]+"/ { version=1 }
-  in_ali && /^[[:space:]]*}/ { in_ali=0 }
-  END { exit(source && version ? 0 : 1) }
-' <target-dir>/*.tf \
-  && echo OK_VERSION || echo BAD_OR_MISSING_VERSION
+# 1. required_providers is absent (RunIaC HCL contract)
+grep -Rq 'required_providers' <target-dir>/*.tf \
+  && echo BAD_REQUIRED_PROVIDERS || echo OK_NO_REQUIRED_PROVIDERS
 
 # 2. configuration_source attribution present somewhere
 grep -Rq 'configuration_source = "AlibabaCloud-Agent-Toolkit/alibabacloud-spec-ops"' \
@@ -485,7 +453,7 @@ alibabacloud-planning
   → alibabacloud-writing-plans
     → alibabacloud-terraform-codegen   ← this skill, ends at Step 7
       → alibabacloud-validate
-        → alibabacloud-executing-plans (plan/apply via IaC Service)
+        → alibabacloud-executing-plans (plan/apply via RunIaC)
 ```
 
 After Step 7 emits the summary, simply stop. Whoever invoked this
@@ -497,8 +465,8 @@ will be driven by that caller, not by this skill.
 **Standalone use:** if the user invoked this skill directly and now
 asks how to actually deploy, name the deployment skill in plain
 language — for example: "生成完成。要把这些资源真正创建到云上，可以通过
-`alibabacloud-spec-ops:alibabacloud-executing-plans` 远程执行 plan
-和 apply。要现在进入这一步吗？" Never read or print AK/SK values from
+`alibabacloud-spec-ops:alibabacloud-executing-plans` 远程调用 RunIaC 执行
+plan 和 apply。要现在进入这一步吗？" Never read or print AK/SK values from
 this skill (Hard rule §1).
 
 **FORBIDDEN user-facing phrases** (do not emit any of these, in any

@@ -1,239 +1,210 @@
-# Alibaba Cloud IaC Service API Reference
+# RunIaC Execution API Reference
 
 ## Overview
 
-IaC Service provides remote Terraform execution through the Alibaba Cloud
-CLI. All operations are asynchronous — submit a job and poll for completion.
+`alibabacloud-executing-plans` runs Terraform plan/apply/destroy through MCP
+Server Core RunIaC:
 
-**ALL commands are executed via MCP tool `AlibabaCloud___CallCLI`** —
-never via Bash. Fully qualified tool name:
-`mcp__plugin_alibabacloud-spec-ops_alibabacloud-spec-ops__AlibabaCloud___CallCLI`.
+- Submit operations with `alibabacloud-spec-ops.AlibabaCloud___RunIaC`
+- Poll operations with `alibabacloud-spec-ops.AlibabaCloud___GetTask`
+
+Do **not** run local Terraform, do **not** shell out to `aliyun`, and do
+**not** use `AlibabaCloud___CallCLI` for Terraform plan/apply/destroy.
+
+## Tool Names
+
+| Purpose | Tool |
+| --- | --- |
+| Submit Terraform operation | `AlibabaCloud___RunIaC` |
+| Poll RunIaC process | `AlibabaCloud___GetTask` |
+| Query cloud inventory during troubleshooting | `AlibabaCloud___CallCLI` |
+
+Codex-qualified RunIaC tool name:
+
+```text
+mcp__plugin_alibabacloud-spec-ops_alibabacloud-spec-ops__AlibabaCloud___RunIaC
+```
+
+Codex-qualified GetTask tool name:
+
+```text
+mcp__plugin_alibabacloud-spec-ops_alibabacloud-spec-ops__AlibabaCloud___GetTask
+```
 
 ## Authentication
 
-Requires configured Alibaba Cloud CLI (`aliyun configure`) with permissions
-for:
+RunIaC uses the caller's MCP Core identity/OAuth-bound credentials. The plugin
+must never read, print, ask for, or place AK/SK values in Terraform HCL.
 
-- `iacservice:ExecuteTerraformPlan`
-- `iacservice:ExecuteTerraformApply`
-- `iacservice:ExecuteTerraformDestroy`
-- `iacservice:GetExecuteState`
-- `iacservice:ValidateModule`
+## HCL Contract
 
-## Critical Constraint: No Local File Access
+RunIaC accepts Terraform HCL as inline `code` for plan. The HCL must:
 
-The `AlibabaCloud___CallCLI` MCP tool executes on a **remote server**. It
-cannot:
+- include an explicit provider block:
 
-- Access the local filesystem
-- Use `file://` or `fileb://` prefixes
-- Use shell substitutions like `$(cat ...)`
-- Use shell pipes, redirects, or variables
+  ```hcl
+  provider "alicloud" {
+    region = var.region
+  }
+  ```
 
-**You MUST read file content locally (via Read tool) and pass it inline as
-a string in `--code`.**
+- avoid credentials in provider blocks
+- avoid `terraform { required_providers { ... } }`
+- use only Alibaba Cloud provider resources
 
-## Region
+For large payloads, use `presignToken` only when the active MCP server exposes
+the upload helper. Otherwise keep generated Terraform compact enough to pass
+inline as `code`.
 
-IaC Service derives the deployment region from the HCL `provider "alicloud"`
-block (`region = var.region`). **Do NOT pass `--region`** on any of these
-commands — the CLI does not accept it.
+## RunIaC Request Shape
 
-## Client Token
+| Field | Required | Notes |
+| --- | --- | --- |
+| `action` | optional | `plan` (default), `apply`, or `destroy` |
+| `code` | plan only | Full Terraform HCL, mutually exclusive with `presignToken` |
+| `presignToken` | plan only | Upload token for large bundles when available |
+| `previousProcessId` | Day-2 plan, apply, destroy | `processID` returned by a prior RunIaC call |
 
-All write operations (Plan / Apply / Destroy) require `--client-token` as an
-idempotency key:
+## Operations
 
-- Type: `string`, regex `[0-9a-zA-Z-]{1,64}`
-- Recommended: a fresh UUID for every call
-- Re-using the same token on a retry returns the original result without
-  re-executing — safe to use for "did my last call go through?" checks
+### Plan
 
-## Commands
+First deployment:
 
-### validate-module
-
-Validates Terraform module syntax server-side without executing. **This
-command lives in the `alibabacloud-terraform-codegen` skill (Step 6).**
-It is listed here only so executing-plans agents recognize it; do not call
-it from this skill — the preceding `alibabacloud-validate` step already
-covers validation before execution begins.
-
-```
-AlibabaCloud___CallCLI:
-  command: "aliyun iacservice validate-module --client-token <uuid> --source Upload --code '<HCL_CONTENT>'"
+```text
+AlibabaCloud___RunIaC:
+  action: "plan"
+  code: "{HCL_CONTENT}"
 ```
 
-| Param | Required | Type | Notes |
-| --- | --- | --- | --- |
-| `--client-token` | yes | `[0-9a-zA-Z-]{1,64}` | Idempotency key |
-| `--source` | yes | enum | `Upload` for inline text |
-| `--code` | conditional | string | Single file HCL content |
-| `--code-map` | conditional | JSON string `{<file>: <hcl>}` | Multi-file; mutually exclusive with `--code` |
-| `--source-path` | optional | string | Source path (other source types) |
+Day-2 re-plan on an existing deployment:
 
-### execute-terraform-plan
-
-Submits a Terraform plan job. Returns a state file ID that the subsequent
-Apply / Get-State call reuses.
-
-```
-AlibabaCloud___CallCLI:
-  command: "aliyun iacservice execute-terraform-plan --client-token <uuid> --code '<HCL_CONTENT>'"
+```text
+AlibabaCloud___RunIaC:
+  action: "plan"
+  code: "{HCL_CONTENT}"
+  previousProcessId: "{LAST_PROCESS_ID}"
 ```
 
-| Param | Required | Type | Notes |
-| --- | --- | --- | --- |
-| `--client-token` | yes | `[0-9a-zA-Z-]{1,64}` | Idempotency key, fresh UUID per call |
-| `--code` | conditional | string | Full Terraform HCL (concatenated from all `.tf` files). Required for first plan; on a follow-up plan with unchanged content, omit `--code` and pass only `--state-id` |
-| `--state-id` | conditional | string | When non-empty, continue Plan on top of an existing state file |
-
-**Response (illustrative):**
+Expected response includes:
 
 ```json
 {
-  "RequestId": "xxx",
-  "StateId": "state-xxxxx"
+  "processID": "iac_xxx",
+  "status": "Planning|Planned|ApprovalPending|Failed",
+  "nextAction": "CallGetTask|Stop|InspectError",
+  "result": {}
 }
 ```
 
-Treat the state ID as opaque. Whatever field the response uses, store it as
-`{STATE_ID}` and feed it back into subsequent calls' `--state-id`.
+Persist `processID` as both `state.last_process_id` and
+`state.last_plan_process_id` immediately after the response.
 
-### execute-terraform-apply
+### Apply
 
-Submits a Terraform apply job. Reuses the `{STATE_ID}` from the preceding
-plan when content is unchanged, or accepts a new `--code` payload if the
-HCL was modified between plan and apply.
+Apply always binds to a completed plan process. Do not pass code.
 
+```text
+AlibabaCloud___RunIaC:
+  action: "apply"
+  previousProcessId: "{LAST_PLAN_PROCESS_ID}"
 ```
-AlibabaCloud___CallCLI:
-  command: "aliyun iacservice execute-terraform-apply --client-token <uuid> --state-id <id>"
+
+Persist the returned `processID` as `state.last_process_id` and
+`state.last_apply_process_id`.
+
+### Destroy
+
+Destroy binds to the latest RunIaC process that owns deployment state. Do not
+pass code. Destroy must be gated by exact project-name confirmation before this
+call.
+
+```text
+AlibabaCloud___RunIaC:
+  action: "destroy"
+  previousProcessId: "{LAST_PROCESS_ID}"
 ```
 
-| Param | Required | Type | Notes |
-| --- | --- | --- | --- |
-| `--client-token` | yes | `[0-9a-zA-Z-]{1,64}` | Fresh UUID — different from the plan's token |
-| `--code` | conditional | string | Required only if HCL changed since plan |
-| `--state-id` | conditional | string | State ID from the preceding plan; required when `--code` is omitted |
+Persist the returned `processID` as `state.last_process_id` and
+`state.last_destroy_process_id`.
 
-**Response:**
+### Poll
+
+RunIaC is asynchronous. Poll every submitted process with GetTask:
+
+```text
+AlibabaCloud___GetTask:
+  processID: "{PROCESS_ID}"
+  waitTimeoutSeconds: 30
+  pollIntervalSeconds: 5
+```
+
+Response handling:
+
+| Status / nextAction | Action |
+| --- | --- |
+| `CallGetTask` / `CallGetTaskAgain` | Poll the same `processID` again |
+| `Planned` + `Stop` | Plan complete; show diff and proceed according to skill rules |
+| `ApprovalPending` | Ask user to complete approval out of band; keep polling same process |
+| `None` | Terminal success |
+| `InspectError` / `Failed` | Inspect `error` and stop or recover |
+| rejection/expiry/validation failure + `Stop` | Terminal stop; do not retry blindly |
+
+## State Persistence
+
+The executing-plans skill owns the `state` object in
+`.aliyun-ai-ops-spec/{name}/tasks/status.json`:
 
 ```json
 {
-  "RequestId": "xxx",
-  "StateId": "state-xxxxx"
+  "state": {
+    "last_process_id": "iac_xxx",
+    "last_plan_process_id": "iac_plan_xxx",
+    "last_apply_process_id": "iac_apply_xxx",
+    "last_destroy_process_id": null,
+    "last_plan_at": "2026-05-06T11:00:00Z",
+    "last_apply_at": "2026-05-06T11:05:00Z",
+    "last_destroy_at": null
+  }
 }
 ```
-
-### execute-terraform-destroy
-
-Submits a Terraform destroy job for an existing state.
-
-```
-AlibabaCloud___CallCLI:
-  command: "aliyun iacservice execute-terraform-destroy --client-token <uuid> --state-id <id>"
-```
-
-| Param | Required | Type | Notes |
-| --- | --- | --- | --- |
-| `--client-token` | yes | `[0-9a-zA-Z-]{1,64}` | Fresh UUID per call |
-| `--state-id` | yes | string | State ID of the deployment to tear down |
-
-### get-execute-state
-
-Polls execution status. Read-only — no `--client-token` required.
-
-```
-AlibabaCloud___CallCLI:
-  command: "aliyun iacservice get-execute-state --state-id <id>"
-```
-
-| Param | Required | Type | Notes |
-| --- | --- | --- | --- |
-| `--state-id` | yes | string | State ID returned by Plan / Apply / Destroy |
-
-**Response (illustrative):**
-
-```json
-{
-  "RequestId": "xxx",
-  "Status": "Running|Succeeded|Failed",
-  "Output": "...",
-  "ErrorMessage": "..."
-}
-```
-
-## State Persistence (Day-1 vs Day-2)
-
-IaC Service stores each deployment's Terraform state remotely, indexed by
-the `state_id` returned from `execute-terraform-plan`. The
-`executing-plans` skill is responsible for round-tripping this value
-through `tasks/status.json` so that subsequent invocations (Day-2
-iteration, retry-after-failure, destroy) continue on the same remote state
-instead of creating a new one.
 
 ### Lifecycle
 
 | Trigger | status.json field | Action |
 | --- | --- | --- |
-| Plan response received | `state.state_id`, `state.last_plan_at` | Write **before** showing plan to user / polling |
-| Apply succeeds | `state.last_apply_at` | Re-confirm `state_id` matches; never overwrite with a different value silently |
-| Plan fails | (unchanged) | Keep any prior `state_id`; failed plan does not delete remote state |
-| Destroy succeeds | `state.last_destroy_at`, top-level `status: "destroyed"` | Keep `state_id` as historical record |
+| Plan response received | `last_process_id`, `last_plan_process_id`, `last_plan_at` | Write before polling/showing output |
+| Apply response received | `last_process_id`, `last_apply_process_id`, `last_apply_at` | Continue polling same process |
+| Plan fails | unchanged, except record failed plan process if returned | Keep previous successful process IDs |
+| Destroy succeeds | `last_process_id`, `last_destroy_process_id`, `last_destroy_at`, top-level `status: "destroyed"` | Keep process IDs as historical record |
 
-### Day-1 vs Day-2 call shape
+### Day-1 vs Day-2
 
-| Scenario | Prior `state.state_id` | Plan CLI |
+| Scenario | Prior state | Plan request |
 | --- | --- | --- |
-| Day-1 (first ever plan/apply for this requirement) | absent / empty | `execute-terraform-plan --code '{HCL}' --client-token <uuid>` |
-| Day-2 (iteration on existing infra) | present | `execute-terraform-plan --code '{HCL}' --state-id <id> --client-token <uuid>` |
+| Day-1 | no `last_process_id` | `action=plan`, `code` |
+| Day-2 | `last_process_id` present | `action=plan`, `code`, `previousProcessId=last_process_id` |
 
-`execute-terraform-apply` always passes `--state-id`. It accepts an
-optional `--code` only when the HCL changed between plan and apply
-(usually it didn't — code is final at plan time).
+### Legacy Migration
 
-### Legacy / migration
+Old versions of spec-ops stored IaCService `state.state_id` from
+`execute-terraform-plan/apply/destroy`. That value is not a RunIaC
+`processID`. If a project has `state.state_id` but no RunIaC process fields,
+stop and ask whether to start a fresh RunIaC Day-1 deployment or let the user
+provide a known RunIaC `processID`.
 
-If status.json has `status: "executed"` but `state.state_id` is missing
-(file predates this schema), the safe response is to STOP and ask the
-user. Choices:
+## Deprecated IaCService CLI Calls
 
-- Treat as Day-1 → fresh state, risks duplicate resources alongside the
-  legacy live infrastructure
-- Have the user paste a known `state_id` to adopt
-- Abort
+The following calls are deprecated for `alibabacloud-executing-plans` and must
+not be emitted by this skill:
 
-Never silently start a new state.
-
-## Polling Strategy
-
-1. Initial wait: ~5 seconds (inform user execution is in progress)
-2. Poll interval: 10 seconds between each `get-execute-state` call
-3. Max attempts: 60 (≈10 minutes total)
-4. On timeout: report as "still running" with the `{STATE_ID}` for manual
-   check
-
-Each poll is a **separate** `AlibabaCloud___CallCLI` call. Do NOT use loops
-in Bash.
-
-## Error Codes
-
-| Code | Meaning | Action |
-| --- | --- | --- |
-| InvalidTemplate | TF syntax error | Fix and re-validate |
-| QuotaExceeded | Resource quota limit | Request quota increase |
-| AccessDenied | Permission missing | Check RAM policy / invoke `alibabacloud-ram-permission-diagnose` |
-| ResourceNotFound | Referenced resource missing | Check dependencies |
-| InternalError | Service issue | Retry after delay (reuse same `--client-token` for safe retry) |
-
-## Deprecated Parameter Names
-
-The following parameter names appeared in early drafts and are **wrong**.
-Do not emit them — the CLI rejects them:
-
-| Stale | Correct |
+| Deprecated | Replacement |
 | --- | --- |
-| `--template-body` | `--code` |
-| `--execution-id` | `--state-id` |
-| `--region` (on iacservice commands) | not a parameter — drop it; region comes from HCL provider block |
+| `aliyun iacservice execute-terraform-plan` | `AlibabaCloud___RunIaC` with `action=plan` |
+| `aliyun iacservice execute-terraform-apply` | `AlibabaCloud___RunIaC` with `action=apply` |
+| `aliyun iacservice execute-terraform-destroy` | `AlibabaCloud___RunIaC` with `action=destroy` |
+| `aliyun iacservice get-execute-state` | `AlibabaCloud___GetTask` |
+
+`AlibabaCloud___CallCLI` remains valid for non-Terraform-execution tasks such
+as live availability queries, RAM diagnosis, and IaCService Module lifecycle
+operations.

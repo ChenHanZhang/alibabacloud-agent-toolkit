@@ -3,26 +3,20 @@
 ## Provider Configuration
 
 ```hcl
-terraform {
-  required_version = ">= 1.3.0"
-  required_providers {
-    alicloud = {
-      source  = "aliyun/alicloud"
-      version = ">= 1.200.0"
-    }
-  }
-}
-
 provider "alicloud" {
-  region = var.region
+  region               = var.region
+  configuration_source = "AlibabaCloud-Agent-Toolkit/alibabacloud-spec-ops"
 }
 ```
+
+Do not emit `terraform { required_providers { ... } }`. The downstream
+RunIaC execution tool rejects explicit `required_providers` blocks.
 
 ## File Organization
 
 | File | Contents |
 |------|----------|
-| `main.tf` | Provider config + primary resources |
+| `main.tf` | Provider config + variables + data + primary resources + outputs |
 | `variables.tf` | All input variables |
 | `outputs.tf` | All output values |
 | `data.tf` | Data sources (zones, images, etc.) |

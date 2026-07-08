@@ -20,6 +20,15 @@ All artifacts for a single infrastructure requirement are stored under `.aliyun-
 │   │   │   └── locals.tf          # Local values (optional)
 │   │   └── cli/
 │   │       └── commands.sh        # Non-TF CLI operations
+│   ├── modules/
+│   │   └── {module-name}/
+│   │       ├── README.md
+│   │       ├── CHANGELOG.md
+│   │       ├── main.tf
+│   │       ├── variables.tf
+│   │       ├── outputs.tf
+│   │       ├── examples/basic/main.tf
+│   │       └── module-manifest.json
 │   └── tasks/
 │       ├── status.json            # Pipeline state tracking
 │       ├── validation-report.md   # Validation results
@@ -70,6 +79,17 @@ Each requirement gets its own directory. They are independent and can be at diff
     "last_apply_at": "2026-05-06T11:05:00Z",
     "last_destroy_at": null
   },
+  "module": {
+    "name": "opencode-sandbox-ecs",
+    "source": "Registry|OSS|Upload|Editor",
+    "source_path": "<remote source path if applicable>",
+    "module_id": "mod-xxxxx",
+    "module_version": "v0.1.0",
+    "task_id": "task-xxxxx",
+    "job_id": "job-xxxxx",
+    "last_job_status": "ConfigProactiveSuccess|Applied|Errored",
+    "last_updated_at": "2026-05-06T11:10:00Z"
+  },
   "history": [
     {
       "phase": "planning",
@@ -91,7 +111,15 @@ Each requirement gets its own directory. They are independent and can be at diff
 | `change_type` | `alibabacloud-planning` | `create` (Day-1) or `modify` (Day-2 iteration on existing infra) |
 | `state.state_id` | `alibabacloud-executing-plans` | IaC Service remote state handle. **MUST be persisted on every plan response** and reused on every subsequent plan/apply/destroy call. See [`executing-plans/references/iac-service-api.md` → State Persistence](../../alibabacloud-executing-plans/references/iac-service-api.md). |
 | `state.last_plan_at` / `last_apply_at` / `last_destroy_at` | `alibabacloud-executing-plans` | ISO timestamps of the most recent successful operation in each category |
+| `module.name` / `module.source` / `module.source_path` | `alibabacloud-module-lifecycle` | Promoted reusable Module identity and IaCService source metadata |
+| `module.module_id` / `module.module_version` | `alibabacloud-module-lifecycle` | IaCService Module record and pinned version for reuse |
+| `module.task_id` / `module.job_id` / `module.last_job_status` | `alibabacloud-module-lifecycle` | Most recent reusable-template task/job execution state |
 
 > **Do not delete `state.state_id`** across re-iterations. Losing it
 > orphans the remote Terraform state and forces a Day-1 deploy that may
 > duplicate already-provisioned resources.
+
+`state.state_id` and `module.*` are intentionally separate. The former is for
+ad hoc POC execution via `execute-terraform-plan/apply/destroy`; the latter is
+for reusable IaCService `modules -> tasks -> jobs`. Do not migrate one into the
+other without an explicit promotion workflow.

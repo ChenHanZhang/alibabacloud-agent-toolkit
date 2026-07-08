@@ -16,6 +16,7 @@ Then you get:
 - ✅ **双独立 reviewer 并行评审** —— spec 满足度 + 代码质量，挡在执行之前
 - 🚀 **远程沙箱执行** —— IaC Service 帮你跑 plan + apply，一次授权一气呵成，全链路审计
 - ↻ **可持续迭代的设计 + 状态** —— `design.md` 和远程 `state_id` 跨会话保留，Day-2 一句"升配 RDS"就在原有基础上做增量，不重建已有资源
+- 📦 **Module 沉淀与复用** —— 验证过的 POC 可晋升为版本化 Module，通过 IaCService `modules → tasks → jobs` 复用和持续维护
 
 ## Workflow at a Glance
 
@@ -25,19 +26,23 @@ flowchart LR
     classDef code fill:#fef7e0,stroke:#e37400,color:#e37400
     classDef val  fill:#e6f4ea,stroke:#1e8e3e,color:#1e8e3e
     classDef exec fill:#fce8e6,stroke:#c5221f,color:#c5221f
+    classDef mod  fill:#f3e8fd,stroke:#9334e6,color:#9334e6
 
     Plan["🧠 Plan<br/>Requirement Scoping<br/>Alibaba Cloud Docs<br/>Best Practices"]:::plan
     Code["📝 Code<br/>IaC Templates<br/>Schema Verified"]:::code
     Validate["✔ Validate<br/>Spec Compliance Review<br/>Code Quality Review"]:::val
     Execute["🚀 Execute<br/>Human-In-The-Loop<br/>Sandboxed Execution"]:::exec
+    Module["📦 Module<br/>Promote · Version · Reuse · Maintain"]:::mod
 
     Plan --> Code --> Validate --> Execute
     Execute -. "DAY-2: MODIFY & ITERATE" .-> Plan
+    Execute -. "PROMOTE VALIDATED POC" .-> Module
+    Module -. "REUSE STANDARD SCENARIO" .-> Execute
 ```
 
 Two infrastructure lanes run underneath every stage:
 
-- **MCP (Alibaba Cloud CLI) drives every stage** — real-time docs lookup, schema verification, remote IaC Service execution
+- **MCP (Alibaba Cloud CLI) drives every stage** — real-time docs lookup, schema verification, remote IaC Service execution, and IaCService Module/task/job operations
 - **Observability (Trace + Telemetry) spans the full lifecycle** — every tool call's duration, status, request-id, and outcome is recorded for audit
 
 ## Get Started — Step by Step
@@ -90,6 +95,24 @@ Need to scale up or add a service later? Just say it:
 
 The plugin auto-detects the modification intent, loads the previous `design.md`, and continues on the same remote `state_id` — your existing resources stay, only the delta is applied.
 
+### 7. Promote and reuse Modules
+
+When a POC is validated, promote it into a reusable Module:
+
+```text
+/alibabacloud-spec-ops:alibabacloud-module-lifecycle   将这个 POC 沉淀成可复用 Module
+```
+
+The Module lifecycle keeps a separate IaCService template state:
+
+```text
+POC execution: execute-terraform-plan/apply + state_id
+Reusable Module: ListModules/CreateModuleVersion/CreateTask/CreateJob + task/job ids
+```
+
+Use the Module lane for standard scenarios that should be versioned, shared,
+reused, or maintained over time.
+
 ## Each Stage in Detail
 
 ### 1. Plan — 需求澄清与架构设计
@@ -135,6 +158,18 @@ The plugin auto-detects the modification intent, loads the previous `design.md`,
 
 每一次迭代都有据可循，源 `design.md` 与 `.tf` 始终同步反映真实部署。
 
+### 5. Module Lifecycle — 沉淀、复用与持续维护
+
+当一次 POC 已经被验证，`alibabacloud-module-lifecycle` 会把它从临时项目晋升为可复用资产：
+
+- **Promote**：读取 `design.md`、Terraform 和执行结果，抽取变量、输出、前置项、权限和验证命令。
+- **Publish**：通过 IaCService `CreateModule` / `CreateModuleVersion` 发布或新增版本。
+- **Reuse**：通过 `CreateTask` / `CreateJob` 运行模板，先展示 plan，再通过 `OperateJob` 审批执行。
+- **Maintain**：比较变量、输出、默认值和外部前置项，按 patch/minor/major 维护版本和 changelog。
+
+Module 生命周期不复用 ad hoc `state_id`。它记录的是 IaCService Module/task/job
+信息，适合像"标准 OpenCode 沙箱"这种需要反复创建、升级、销毁和排障的场景。
+
 ## Quality In, Quality Out
 
 ```text
@@ -168,6 +203,15 @@ All artifacts live under `.aliyun-ai-ops-spec/{requirement-name}/`:
 │   ├── design.md              # Architecture design + Decisions Log
 │   ├── architecture.html      # Optional visual diagram
 │   └── terraform/             # Generated HCL
+├── modules/                    # Promoted reusable Modules
+│   └── {module-name}/
+│       ├── README.md
+│       ├── CHANGELOG.md
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       ├── examples/basic/main.tf
+│       └── module-manifest.json
 └── tasks/
     ├── status.json            # Pipeline state + state_id for Day-2
     ├── validation-report.md
@@ -176,6 +220,27 @@ All artifacts live under `.aliyun-ai-ops-spec/{requirement-name}/`:
 ```
 
 `status.json` carries the IaC Service `state_id` so the next iteration continues on the same remote state instead of recreating resources.
+
+When a project is promoted to a reusable Module, `status.json` also carries a
+separate `module` object:
+
+```json
+{
+  "state": {
+    "state_id": "state-xxxxx"
+  },
+  "module": {
+    "name": "opencode-sandbox-ecs",
+    "module_id": "mod-xxxxx",
+    "module_version": "v0.1.0",
+    "task_id": "task-xxxxx",
+    "job_id": "job-xxxxx"
+  }
+}
+```
+
+`state.state_id` is for ad hoc POC execution. `module.*` is for reusable
+IaCService modules/tasks/jobs. Do not interchange them.
 
 ## Install
 
@@ -223,6 +288,7 @@ The server is named distinctly from `alibabacloud-core` to avoid namespace colli
 | `alibabacloud-terraform-codegen` | Generate and modify Alibaba Cloud Terraform HCL code |
 | `alibabacloud-validate` | Dual review (spec compliance + code quality) — auto-runs after codegen |
 | `alibabacloud-executing-plans` | Execute validated Terraform plans through Alibaba Cloud IaC Service |
+| `alibabacloud-module-lifecycle` | Promote validated POCs into reusable Modules, publish versions, run IaCService tasks/jobs, and maintain Module versions |
 | `alibabacloud-ram-permission-diagnose` | Diagnose and repair RAM permission errors (403 / NoPermission / etc.) |
 
 ## Agents
